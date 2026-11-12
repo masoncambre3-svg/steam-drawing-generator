@@ -38,4 +38,5 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
 | Steam traps | TD52, TD62M / TD62LM, FT450, IBV Series C, BPC32Y, SMC32Y |
 | Strainers | Fig 16HP, Fig 16L, Fig 34, Fig 34HP, Fig 36, Fig 36HP |
 | Valves | A3S / A3SS |
+| Pumps | PTF / PTF-SS (2" x 2", 3" x 2"), PTF Top Inlet (3" x 3") |
 | Fittings (built in) | 90° elbow, tee, concentric reducer, eccentric reducer |

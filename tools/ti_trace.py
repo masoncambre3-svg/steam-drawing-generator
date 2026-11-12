@@ -43,8 +43,20 @@ def flat(seg):
     return bez(*[np.array(p, float) for p in seg[1:]])
 
 
+def _dash_first(d):
+    """First dash length and phase of a stroke's dash pattern, or None for a solid stroke."""
+    ds = d.get("dashes")
+    if not ds or ds in ("[] 0", ""):
+        return None
+    try:
+        arr, phase = ds.rsplit("]", 1)
+        return float(arr.strip("[ ").split()[0]), float(phase)
+    except Exception:
+        return (0.0, 0.0)
+
+
 def collect(pdf, page_no, clip, outline_lw, drop=(), keep_thin=True, inside_frac=0.92,
-          keep_fills=False, close=3, min_thin_lw=0.0, extra_outline=(), max_lw=9.0):
+          keep_fills=False, close=3, min_thin_lw=0.0, extra_outline=(), max_lw=9.0, short_dash_solid=False):
     """clip/drop boxes are (x0, y0, x1, y1) in pdf points on the page."""
     page = pymupdf.open(pdf)[page_no - 1]
     x0, y0, x1, y1 = clip
@@ -57,7 +69,8 @@ def collect(pdf, page_no, clip, outline_lw, drop=(), keep_thin=True, inside_frac
         lw = d.get("width") or 0
         if lw > max_lw:
             continue                                   # heavy dimension lines
-        if d.get("dashes") and d["dashes"] not in ("[] 0", ""):
+        dash = _dash_first(d)
+        if dash and not short_dash_solid:
             continue                                   # centre lines, hidden lines
         stroked = d["type"] in ("s", "fs") and d.get("color") is not None
         if not stroked:
@@ -77,6 +90,12 @@ def collect(pdf, page_no, clip, outline_lw, drop=(), keep_thin=True, inside_frac
                 continue
             if any(inside(bb, b) for b in drop):
                 continue
+            if dash:
+                # Some sheets leave a dash pattern set on ordinary outline strokes. A piece shorter than the
+                # first dash, starting at phase 0, prints solid: keep it. Anything else is a real dashed line.
+                L = sum(float(np.hypot(*np.diff(flat(sg), axis=0).T).sum()) for sg in segs)
+                if dash[1] != 0 or L > dash[0]:
+                    continue
             if lw >= outline_lw or any(inside(bb, b) for b in extra_outline):
                 thick.append((lw, segs))
             elif lw >= min_thin_lw:

@@ -51,6 +51,9 @@ def parts(s, arrow_spec=None):
     ports = [[round(float(v), 2) for v in s.ports[k]] for k in ("in", "out") if k in s.ports]
     if "drain" in s.ports:
         ports.append([round(float(v), 2) for v in s.ports["drain"]] + [round(float(s.drain_angle), 1)])
+    for k in s.ports:                                   # any other connections (motive, exhaust, ...)
+        if k not in ("in", "out", "drain"):
+            ports.append([round(float(v), 2) for v in s.ports[k]])
     return dict(box=[round(float(v), 2) for v in (s.x0, s.y0, s.w, s.h)], fill=fill, strokes=strokes, arrow=arrow,
                 dims={k: v for k, v in s.d.items() if k != "size"}, ports=ports)
 
@@ -163,7 +166,22 @@ def build_valves(only=None):
                         source="Traced from the TI outline drawing", note=""), syms)
 
 
-BUILDERS = {"steam-traps": build_traps, "strainers": build_strainers, "valves": build_valves}
+def build_pumps(only=None):
+    import pumps as PU
+    for model, d in PU.DATA.items():
+        if only and only != model:
+            continue
+        syms = {}
+        for size in d["sizes"]:
+            for v in d["variants"]:
+                s = PU.Pump(model, size, v)
+                syms[f"{model}|{size}|{v}"] = parts(s, s.arrow)
+        write_pack("pumps", "Pumps", model,
+                   dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
+                        source="Traced from the TI outline drawing", note=d.get("note", "")), syms)
+
+
+BUILDERS = {"steam-traps": build_traps, "strainers": build_strainers, "valves": build_valves, "pumps": build_pumps}
 
 if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if not a.startswith("--")]

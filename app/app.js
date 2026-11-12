@@ -56,7 +56,7 @@ const PRESETS = [["Blue", "#3f86dc"], ["Navy", "#1f3f73"], ["Steel grey", "#8d99
                  ["Orange", "#e58a2b"], ["Yellow", "#e9c53c"], ["Green", "#3f9a5f"], ["White", "#f2f4f7"]];
 const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
-const BUILD = "5";
+const BUILD = "6";
 
 let doc = { v: 1, style: { shade: true, blackLines: false }, items: [] };
 const ui = { tool: "select", sel: null, draft: null, cursor: null, view: { cx: 0, cy: 0, s: 1.6 },
@@ -390,6 +390,7 @@ function panel() {
     $("symArrow").onchange = e => set("arrow", e.target.checked);
     const inch = mm => (mm / 25.4).toFixed(mm / 25.4 >= 10 ? 1 : 2) + '"';
     $("dims").innerHTML = s ? `<tr><th>${p.fit ? "Dimension" : "TI dim"}</th><th>in</th><th>mm</th></tr>` + Object.keys(s.dims).map(k => `<tr><td>${k}</td><td>${inch(s.dims[k])}</td><td>${s.dims[k]}</td></tr>`).join("") : "";
+    $("prodNote").hidden = !p.note; $("prodNote").textContent = p.note || "";
   }
 
   // pipe

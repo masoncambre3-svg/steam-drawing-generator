@@ -3,7 +3,8 @@ SDG.index({
  "families": [
   "Steam traps",
   "Strainers",
-  "Valves"
+  "Valves",
+  "Pumps"
  ],
  "packs": [
   "steam-traps/TD52/TD52.js",
@@ -18,6 +19,8 @@ SDG.index({
   "strainers/FIG34HP/FIG34HP.js",
   "strainers/FIG36/FIG36.js",
   "strainers/FIG36HP/FIG36HP.js",
-  "valves/A3S/A3S.js"
+  "valves/A3S/A3S.js",
+  "pumps/PTF/PTF.js",
+  "pumps/PTF-TOP/PTF-TOP.js"
  ]
 });

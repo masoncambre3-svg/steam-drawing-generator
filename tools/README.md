@@ -34,9 +34,19 @@ Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for
 - `symbols.py`    steam traps (TD52, TD62M, FT450, IBV-C, BPC32Y, SMC32Y)
 - `strainers.py`  Fig 16HP, 16L, 34, 34HP, 36, 36HP; cap slides along the leg to hit dimension B; drain port
 - `valves.py`     A3S / A3SS; handwheel scaled as a unit to dimension C
+- `pumps.py`      Pivotrol PTF and PTF Top; nozzles and check valves scaled as a unit to dimension A
 - `make_packs.py` writes packs, previews, catalog and index
 - `catalog.json`  families and product order shown in the app
 - `sources.py`    where the source PDFs are for this session
+
+## Notes from earlier sessions
+
+- Some sheets (the PTF pump pages) leave a dash pattern set on ordinary outline strokes. Pass
+  `short_dash_solid=True` to `collect` so short phase-0 pieces are kept and real dashed lines are dropped.
+- Leaders and centre lines that sit inside the outline need explicit `drop` boxes.
+- Not traced yet from TI-P207: PTF Top T-Bone (p885, the elevation shows the tee end-on), PTF4 (p901, vector,
+  many leaders cross the tank), PTF-HP (p891) and PTF-HTF (p896), whose drawings do not come out of
+  `get_drawings()` and need a closer look.
 
 ## Conventions the app relies on
 

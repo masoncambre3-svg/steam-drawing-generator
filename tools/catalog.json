@@ -1,0 +1,35 @@
+{
+ "families": [
+  {
+   "slug": "steam-traps",
+   "name": "Steam traps",
+   "products": [
+    "TD52",
+    "TD62M",
+    "FT450",
+    "IBV-C",
+    "BPC32Y",
+    "SMC32Y"
+   ]
+  },
+  {
+   "slug": "strainers",
+   "name": "Strainers",
+   "products": [
+    "FIG16HP",
+    "FIG16L",
+    "FIG34",
+    "FIG34HP",
+    "FIG36",
+    "FIG36HP"
+   ]
+  },
+  {
+   "slug": "valves",
+   "name": "Valves",
+   "products": [
+    "A3S"
+   ]
+  }
+ ]
+}

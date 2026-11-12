@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steam Drawing Generator</title>
+<link rel="stylesheet" href="app/app.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Steam Drawing Generator</h1>
+    <p>Lay out traps, strainers, valves, fittings and pipe at true scale, then copy the drawing into a report. <span id="ver"></span></p>
+  </header>
+  <div class="cols">
+    <aside class="panel" id="side">
+      <div class="group" id="gProduct">
+        <h2 id="prodTitle">Add a product</h2>
+        <div class="chips" id="families"></div>
+        <div class="products" id="products"></div>
+        <div class="meta" id="prodmeta"></div>
+        <div class="row"><label>Size</label></div>
+        <div class="chips" id="sizes"></div>
+        <div class="row" id="variantRow"><label id="variantLabel">Connection</label></div>
+        <div class="chips" id="variants"></div>
+        <div class="row"><label>Color</label></div>
+        <div class="swatches" id="symColors"></div>
+        <label class="check" id="symArrowWrap"><input type="checkbox" id="symArrow"> Flow arrow</label>
+        <button class="btn primary wide" id="addBtn" type="button">Add to drawing</button>
+        <table id="dims"></table>
+      </div>
+      <div class="group" id="gPipe">
+        <h2 id="pipeTitle">Pipe</h2>
+        <p class="hint" id="pipeHint">Click on the sheet to start a pipe, click again for each turn, and double-click to finish. Runs lock to 45° steps.</p>
+        <div class="row">
+          <label for="nps">Size</label><select id="nps"></select>
+          <label for="sch">Schedule</label><select id="sch"><option value="40">40</option><option value="80">80</option></select>
+        </div>
+        <div class="meta" id="pipeMeta"></div>
+        <div class="swatches" id="pipeColors"></div>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="pipeLabel"> Size label</label>
+          <label class="check"><input type="checkbox" id="pipeCut"> Show wall thickness</label>
+        </div>
+      </div>
+      <div class="group" id="gText">
+        <h2 id="textTitle">Text</h2>
+        <p class="hint" id="textHint">Click on the sheet where the label should go.</p>
+        <textarea id="textVal" placeholder="Label text"></textarea>
+        <div class="row"><label for="textSize">Height, mm</label><input type="number" id="textSize" min="3" max="400" step="1"></div>
+        <div class="swatches" id="textColors"></div>
+      </div>
+      <div class="group" id="gArrow">
+        <h2>Arrow</h2>
+        <p class="hint" id="arrowHint">Click where the arrow starts, then where it points.</p>
+        <div class="swatches" id="arrowColors"></div>
+      </div>
+      <div class="group">
+        <h2>Drawing style</h2>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="shade"> Shaded fill</label>
+          <label class="check"><input type="checkbox" id="blackLines"> Black linework</label>
+        </div>
+      </div>
+    </aside>
+
+    <main class="panel stage">
+      <div class="toolbar" role="toolbar" aria-label="Drawing tools">
+        <button class="tool" id="tSelect" type="button">Select</button>
+        <button class="tool" id="tPipe" type="button">Pipe</button>
+        <button class="tool" id="tText" type="button">Text</button>
+        <button class="tool" id="tArrow" type="button">Arrow</button>
+        <span class="sep"></span>
+        <button class="tool" id="bRot" type="button">Rotate</button>
+        <button class="tool" id="bFlip" type="button">Mirror</button>
+        <button class="tool" id="bDup" type="button">Duplicate</button>
+        <button class="tool" id="bDel" type="button">Delete</button>
+        <span class="sep"></span>
+        <button class="tool" id="bUndo" type="button">Undo</button>
+        <button class="tool" id="bRedo" type="button">Redo</button>
+        <span class="sep"></span>
+        <button class="tool" id="bOut" type="button" aria-label="Zoom out">−</button>
+        <button class="tool" id="bIn" type="button" aria-label="Zoom in">+</button>
+        <button class="tool" id="bFit" type="button">Fit</button>
+      </div>
+      <div class="board t-select" id="board">
+        <svg id="cv" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Drawing sheet"></svg>
+        <div class="scalebar" id="scalebar"><i></i><span></span></div>
+        <div class="tip" id="tip"></div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="copyBtn" type="button">Copy image</button>
+        <button class="btn" id="pngBtn" type="button">Download PNG</button>
+        <button class="btn" id="svgBtn" type="button">Download SVG</button>
+        <label class="check"><input type="checkbox" id="whiteBg"> White background</label>
+        <span class="sep" style="width:1px;align-self:stretch;background:var(--line)"></span>
+        <button class="btn" id="saveBtn" type="button">Save drawing file</button>
+        <button class="btn" id="openBtn" type="button">Open drawing file</button>
+        <input type="file" id="openFile" accept=".json,application/json" hidden>
+        <button class="btn" id="clearBtn" type="button">Clear</button>
+        <span class="status" id="status" role="status"></span>
+      </div>
+    </main>
+  </div>
+</div>
+<script src="app/loader.js"></script>
+</body>
+</html>

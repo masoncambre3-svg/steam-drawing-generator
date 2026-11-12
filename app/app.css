@@ -79,3 +79,4 @@ th:first-child, td:first-child { text-align: left; } th { font-weight: 500; colo
 .actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 9px 10px; border-top: 1px solid var(--line); align-items: center; }
 .status { margin-left: auto; font-size: 13px; color: var(--muted); min-height: 1.4em; }
 .status.ok { color: var(--ok); } .status.warn { color: var(--warn); }
+.stack { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }

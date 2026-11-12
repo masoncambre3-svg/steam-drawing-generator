@@ -13,3 +13,5 @@ S5_PDF = os.environ.get("SDG_S5", UP + "S5-TI-P023-11-EN.pdf")                  
 S6_PDF = os.environ.get("SDG_S6", UP + "S6-TI-P023-12-EN.pdf")                      # TI-P023-12, S6 separator
 S4A_PDF = os.environ.get("SDG_S4A", UP + "S4A-TI-P139-02-US.pdf")                   # TI-P139-02-US, S4A 1/2"-6" (raster drawing)
 S4A818_PDF = os.environ.get("SDG_S4A818", UP + "S4A_8_18-TI-P139-03-US.pdf")        # TI-P139-03-US, S4A 8"-18" (filled shapes)
+UFT32_PDF = os.environ.get("SDG_UFT32", UP + "UFT32-TI-P146-05-EN.pdf")             # TI-P146-05, UFT32 trap unit
+MANIFOLD_PDF = os.environ.get("SDG_MSCMSD", UP + "MSD-MSC-MANIFOLDS-TI-P115-03-US.pdf")  # TI-P115-03-US, MSC / MSD manifolds

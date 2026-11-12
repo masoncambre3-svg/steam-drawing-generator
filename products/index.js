@@ -5,7 +5,8 @@ SDG.index({
   "Strainers",
   "Valves",
   "Pumps",
-  "Separators"
+  "Separators",
+  "Manifolds"
  ],
  "packs": [
   "steam-traps/TD52/TD52.js",
@@ -14,6 +15,7 @@ SDG.index({
   "steam-traps/IBV-C/IBV-C.js",
   "steam-traps/BPC32Y/BPC32Y.js",
   "steam-traps/SMC32Y/SMC32Y.js",
+  "steam-traps/UFT32/UFT32.js",
   "strainers/FIG16HP/FIG16HP.js",
   "strainers/FIG16L/FIG16L.js",
   "strainers/FIG34/FIG34.js",
@@ -26,6 +28,8 @@ SDG.index({
   "separators/S5/S5.js",
   "separators/S6/S6.js",
   "separators/S4A/S4A.js",
-  "separators/S4A-FL/S4A-FL.js"
+  "separators/S4A-FL/S4A-FL.js",
+  "manifolds/MSC/MSC.js",
+  "manifolds/MSD/MSD.js"
  ]
 });

@@ -10,7 +10,7 @@
 <div class="wrap">
   <header>
     <h1>Steam Drawing Generator</h1>
-    <p>Lay out traps, strainers, valves, fittings and pipe at true scale, then copy the drawing into a report. <span id="ver"></span></p>
+    <p>Lay out traps, strainers, valves, manifolds, fittings and pipe at true scale, then copy the drawing into a report. <span id="ver"></span></p>
   </header>
   <div class="cols">
     <aside class="panel" id="side">
@@ -19,13 +19,20 @@
         <div class="chips" id="families"></div>
         <div class="products" id="products"></div>
         <div class="meta" id="prodmeta"></div>
-        <div class="row"><label>Size</label></div>
+        <div class="row"><label id="sizeLabel">Size</label></div>
         <div class="chips" id="sizes"></div>
         <div class="row" id="variantRow"><label id="variantLabel">Connection</label></div>
         <div class="chips" id="variants"></div>
         <div class="row"><label>Color</label></div>
         <div class="swatches" id="symColors"></div>
         <label class="check" id="symArrowWrap"><input type="checkbox" id="symArrow"> Flow arrow</label>
+        <div id="logoWrap">
+          <label class="check"><input type="checkbox" id="symLogo"> Spirax Sarco logo</label>
+          <div id="logoOpts" class="stack">
+            <div class="chips" id="logoPos"></div>
+            <div class="chips" id="logoSize"></div>
+          </div>
+        </div>
         <button class="btn primary wide" id="addBtn" type="button">Add to drawing</button>
         <table id="dims"></table>
         <p class="hint" id="prodNote" hidden></p>
@@ -42,6 +49,7 @@
         <div class="row">
           <label class="check"><input type="checkbox" id="pipeLabel"> Size label</label>
           <label class="check"><input type="checkbox" id="pipeCut"> Show wall thickness</label>
+          <label class="check"><input type="checkbox" id="pipeLen"> Run lengths</label>
         </div>
       </div>
       <div class="group" id="gText">
@@ -56,12 +64,21 @@
         <p class="hint" id="arrowHint">Click where the arrow starts, then where it points.</p>
         <div class="swatches" id="arrowColors"></div>
       </div>
+      <div class="group" id="gDim">
+        <h2 id="dimTitle">Dimension</h2>
+        <p class="hint" id="dimHint">Click two points, then click where the dimension line goes. Points snap to product connections and pipe ends and turns.</p>
+        <div class="chips" id="dimMode"></div>
+        <div class="row"><label for="dimSize">Text height, mm</label><input type="number" id="dimSize" min="3" max="400" step="1"></div>
+        <div class="swatches" id="dimColors"></div>
+        <div class="meta" id="dimMeta"></div>
+      </div>
       <div class="group">
         <h2>Drawing style</h2>
         <div class="row">
           <label class="check"><input type="checkbox" id="shade"> Shaded fill</label>
           <label class="check"><input type="checkbox" id="blackLines"> Black linework</label>
         </div>
+        <div class="row"><label>Lengths in</label><div class="chips" id="units"></div></div>
       </div>
     </aside>
 
@@ -71,6 +88,7 @@
         <button class="tool" id="tPipe" type="button">Pipe</button>
         <button class="tool" id="tText" type="button">Text</button>
         <button class="tool" id="tArrow" type="button">Arrow</button>
+        <button class="tool" id="tDim" type="button">Dimension</button>
         <span class="sep"></span>
         <button class="tool" id="bRot" type="button">Rotate</button>
         <button class="tool" id="bFlip" type="button">Mirror</button>

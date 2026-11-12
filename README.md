@@ -14,7 +14,8 @@ index.html                 the page (markup only)
 app/
   app.css                  styling
   loader.js                loads the product packs, then the editor
-  app.js                   the editor: sheet, pipe, fittings, text, export
+  app.js                   the editor: sheet, pipe, fittings, text, dimensions, export
+  logo.js                  Spirax Sarco logo (vector) for the product logo option
 products/
   index.js                 list of packs in display order (generated)
   steam-traps/<ID>/<ID>.js one product per folder, plus preview.png
@@ -22,6 +23,7 @@ products/
   valves/<ID>/<ID>.js
   pumps/<ID>/<ID>.js
   separators/<ID>/<ID>.js
+  manifolds/<ID>/<ID>.js
 tools/                     the tracing kit used to make packs (not deployed)
 ```
 
@@ -33,13 +35,23 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
 2. `tools/make_packs.py` rewrites `products/index.js`.
 3. Commit and push. Vercel redeploys on push. `app/` does not change.
 
+## Drawing tools
+
+- Dimension: click two points (they snap to product connections and pipe ends and turns), then click where the
+  dimension line goes. Aligned, horizontal or vertical. Drag the end handles or the middle handle to adjust.
+- Pipe run lengths: tick "Run lengths" on a pipe to label every straight run with its centreline length,
+  point to point.
+- Lengths read in ft-in, in or mm (Drawing style). ft-in and in round to 1/16".
+- Spirax Sarco logo: tick it on any product, then pick on the body, above or below, and the size.
+
 ## Products so far
 
 | Family | Products |
 |---|---|
-| Steam traps | TD52, TD62M / TD62LM, FT450, IBV Series C, BPC32Y, SMC32Y |
+| Steam traps | TD52, TD62M / TD62LM, FT450, IBV Series C, BPC32Y, SMC32Y, UFT32 (trap unit) |
 | Strainers | Fig 16HP, Fig 16L, Fig 34, Fig 34HP, Fig 36, Fig 36HP |
 | Valves | A3S / A3SS |
 | Pumps | PTF / PTF-SS (2" x 2", 3" x 2"), PTF Top Inlet (3" x 3") |
 | Separators | S5, S6 (1/2" to 2"), S4A (1/2" to 2" screwed/SW), S4A flanged (2-1/2" to 18") |
+| Manifolds | MSC condensate collection, MSD steam distribution (4, 8, 12, 16 stations, with or without stand) |
 | Fittings (built in) | 90° elbow, tee, concentric reducer, eccentric reducer |

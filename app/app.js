@@ -56,13 +56,85 @@ const PRESETS = [["Blue", "#3f86dc"], ["Navy", "#1f3f73"], ["Steel grey", "#8d99
                  ["Orange", "#e58a2b"], ["Yellow", "#e9c53c"], ["Green", "#3f9a5f"], ["White", "#f2f4f7"]];
 const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
-const BUILD = "6";
+const BUILD = "7";
+const LOGO = window.SDG_LOGO || null;                       // vector Spirax Sarco logo, app/logo.js
+const STYLE0 = { shade: true, blackLines: false, units: "ftin" };
+const UNITS = [["ftin", "ft-in"], ["in", "in"], ["mm", "mm"]];
+const LOGO_POS = [["center", "On body"], ["above", "Above"], ["below", "Below"]];
+const LOGO_SIZE = { S: 0.3, M: 0.45, L: 0.65 };             // logo width as a share of the product's width
 
-let doc = { v: 1, style: { shade: true, blackLines: false }, items: [] };
+let doc = { v: 1, style: Object.assign({}, STYLE0), items: [] };
 const ui = { tool: "select", sel: null, draft: null, cursor: null, view: { cx: 0, cy: 0, s: 1.6 },
-  pick: { family: "Steam traps", product: "TD52", size: '3/4"', variant: "NPT", color: "#3f86dc", arrow: true },
-  pipe: { nps: '3/4"', sch: 80, color: "#8d99a8", label: true, cut: false },
-  text: { text: "", size: 14, color: "#13233b" }, arrow: { color: "#13233b" } };
+  pick: { family: "Steam traps", product: "TD52", size: '3/4"', variant: "NPT", color: "#3f86dc", arrow: true, logo: false, logoPos: "center", logoSize: "M" },
+  pipe: { nps: '3/4"', sch: 80, color: "#8d99a8", label: true, cut: false, len: false },
+  text: { text: "", size: 14, color: "#13233b" }, arrow: { color: "#13233b" }, dim: { mode: "aligned", color: "#13233b", size: 0 } };
+
+// ---------------------------------------------------------------- lengths and dimensions
+// Lengths read to the nearest 1/16" (ft-in, in) or 1 mm.
+function fmtLen(mm, units) {
+  units = units || doc.style.units;
+  if (units === "mm") return `${Math.round(mm)} mm`;
+  const n16 = Math.round(Math.abs(mm) / 25.4 * 16), ft = units === "ftin" ? Math.floor(n16 / 192) : 0, r = n16 - ft * 192;
+  const whole = Math.floor(r / 16); let num = r % 16, den = 16;
+  while (num && num % 2 === 0) { num /= 2; den /= 2; }
+  const lead = whole || !num || ft;                        // 4'-0 5/8", but 5/8" on its own
+  const inch = (lead ? String(whole) : "") + (num ? `${lead ? " " : ""}${num}/${den}` : "");
+  return ft ? `${ft}'-${inch}"` : `${inch}"`;
+}
+// A dimension: points a and b, the measuring mode (aligned, h, v) and the signed offset of the dimension line.
+function dimGeom(it) {
+  const a = it.a, b = it.b, dx = b[0] - a[0], dy = b[1] - a[1];
+  let u = it.mode === "h" ? [dx < 0 ? -1 : 1, 0] : it.mode === "v" ? [0, dy < 0 ? -1 : 1] : [dx, dy];
+  const ul = Math.hypot(u[0], u[1]) || 1; u = [u[0] / ul, u[1] / ul];
+  const n = [-u[1], u[0]], dn = dx * n[0] + dy * n[1], L = Math.abs(dx * u[0] + dy * u[1]);
+  const p1 = [a[0] + n[0] * it.off, a[1] + n[1] * it.off], p2 = [b[0] + n[0] * (it.off - dn), b[1] + n[1] * (it.off - dn)];
+  return { u, n, L, p1, p2 };
+}
+function dimSvg(it) {
+  const g = dimGeom(it), s = it.size, lw = Math.max(0.25, s * 0.07), ah = Math.min(s * 0.85, g.L * 0.3), aw = ah * 0.28;
+  const f = v => v.toFixed(2), side = it.off < 0 ? -1 : 1;
+  const ext = (p, q) => {                                 // extension line from the measured point past the dimension line
+    const vx = q[0] - p[0], vy = q[1] - p[1], l = Math.hypot(vx, vy);
+    if (l < s * 0.4) return "";
+    const ux = vx / l, uy = vy / l, gap = s * 0.3, over = s * 0.45;
+    return `M${f(p[0] + ux * gap)},${f(p[1] + uy * gap)}L${f(q[0] + ux * over)},${f(q[1] + uy * over)}`;
+  };
+  const head = (p, d) => `${f(p[0])},${f(p[1])} ${f(p[0] + d[0] * ah - g.n[0] * aw)},${f(p[1] + d[1] * ah - g.n[1] * aw)} ${f(p[0] + d[0] * ah + g.n[0] * aw)},${f(p[1] + d[1] * ah + g.n[1] * aw)}`;
+  const um = [-g.u[0], -g.u[1]];
+  let ang = Math.atan2(g.u[1], g.u[0]) * 180 / Math.PI;
+  if (ang > 90.5) ang -= 180; if (ang <= -89.5) ang += 180;
+  const r = ang * Math.PI / 180, up = [Math.sin(r), -Math.cos(r)];           // screen "up" for the text
+  const mx = (g.p1[0] + g.p2[0]) / 2, my = (g.p1[1] + g.p2[1]) / 2, tx = mx + up[0] * s * 0.45, ty = my + up[1] * s * 0.45;
+  const id = `data-id="${it.id}"`;
+  return `<g ${id}><path d="${ext(it.a, g.p1)}${ext(it.b, g.p2)}M${f(g.p1[0])},${f(g.p1[1])}L${f(g.p2[0])},${f(g.p2[1])}" fill="none" stroke="${it.color}" stroke-width="${f(lw)}" stroke-linecap="round"/>` +
+    `<polygon points="${head(g.p1, g.u)}" fill="${it.color}"/><polygon points="${head(g.p2, um)}" fill="${it.color}"/>` +
+    `<text x="${f(tx)}" y="${f(ty)}" font-family="Arial, Helvetica, sans-serif" font-size="${f(s)}" fill="${it.color}" text-anchor="middle"` +
+    (Math.abs(ang) > 0.5 ? ` transform="rotate(${ang.toFixed(1)} ${f(tx)} ${f(ty)})"` : "") + `>${esc(fmtLen(g.L))}</text>` +
+    `<path d="M${f(g.p1[0])},${f(g.p1[1])}L${f(g.p2[0])},${f(g.p2[1])}" stroke="transparent" stroke-width="${f(Math.max(s * 1.6, 10 / ui.view.s))}"/></g>`;
+}
+function dimBox(it) {
+  const g = dimGeom(it), s = it.size, P = [it.a, it.b, g.p1, g.p2].map(p => [p[0], p[1]]);
+  const mx = (g.p1[0] + g.p2[0]) / 2, my = (g.p1[1] + g.p2[1]) / 2, half = fmtLen(g.L).length * s * 0.3;
+  P.push([mx - half, my - s * 1.4], [mx + half, my + s * 1.4]);
+  return [Math.min(...P.map(p => p[0])), Math.min(...P.map(p => p[1])), Math.max(...P.map(p => p[0])), Math.max(...P.map(p => p[1]))];
+}
+const autoDimSize = L => Math.round(Math.max(8, Math.min(50, L * 0.035)));
+// Spirax Sarco logo on a product: always upright and never mirrored, placed from the product's outline box.
+function logoPlace(it, b) {
+  if (!LOGO || !it.logo) return null;
+  const bw = b[2] - b[0], bh = b[3] - b[1], pos = it.logoPos || "center";
+  let w = bw * (LOGO_SIZE[it.logoSize] || LOGO_SIZE.M);
+  if (pos === "center") w = Math.min(w, bh * 0.3 * LOGO.w / LOGO.h);
+  const h = w * LOGO.h / LOGO.w, cx = (b[0] + b[2]) / 2, gap = h * 0.35;
+  const cy = pos === "above" ? b[1] - gap - h / 2 : pos === "below" ? b[3] + gap + h / 2 : (b[1] + b[3]) / 2;
+  return { x: cx - w / 2, y: cy - h / 2, w, h, plate: pos === "center" };
+}
+function logoSvg(it) {
+  const L = logoPlace(it, symBox(it)); if (!L) return "";
+  const k = L.w / LOGO.w, pad = L.h * 0.16, f = v => v.toFixed(2);
+  return (L.plate ? `<rect data-id="${it.id}" x="${f(L.x - pad)}" y="${f(L.y - pad)}" width="${f(L.w + 2 * pad)}" height="${f(L.h + 2 * pad)}" rx="${f(pad)}" fill="#ffffff" fill-opacity="0.94"/>` : "") +
+    `<path data-id="${it.id}" d="${LOGO.d}" fill="${LOGO.color}" transform="translate(${f(L.x)} ${f(L.y)}) scale(${k.toFixed(5)})"/>`;
+}
 let hist = [], hi = -1, nextId = 1;
 
 // ---------------------------------------------------------------- colour
@@ -95,12 +167,17 @@ function symXform(it) {
   return p => { const x = (p[0] - cx) * f, y = p[1] - cy; return [it.x + x * co - y * si, it.y + x * si + y * co]; };
 }
 const portsOf = it => { const T = symXform(it); return symOf(it).ports.map(T); };
+function symBox(it) {
+  const s = symOf(it), T = symXform(it), [x, y, w, h] = s.box;
+  const c = [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map(T);
+  return [Math.min(...c.map(p => p[0])), Math.min(...c.map(p => p[1])), Math.max(...c.map(p => p[0])), Math.max(...c.map(p => p[1]))];
+}
 function bboxOf(it) {
   if (it.type === "sym") {
-    const s = symOf(it), T = symXform(it), [x, y, w, h] = s.box;
-    const c = [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map(T);
-    return [Math.min(...c.map(p => p[0])), Math.min(...c.map(p => p[1])), Math.max(...c.map(p => p[0])), Math.max(...c.map(p => p[1]))];
+    const b = symBox(it), L = logoPlace(it, b);
+    return L ? [Math.min(b[0], L.x), Math.min(b[1], L.y), Math.max(b[2], L.x + L.w), Math.max(b[3], L.y + L.h)] : b;
   }
+  if (it.type === "dim") return dimBox(it);
   if (it.type === "pipe") {
     const r = PIPE[it.nps][0] / 2 + 1;
     return [Math.min(...it.pts.map(p => p[0])) - r, Math.min(...it.pts.map(p => p[1])) - r, Math.max(...it.pts.map(p => p[0])) + r, Math.max(...it.pts.map(p => p[1])) + r];
@@ -153,8 +230,9 @@ function itemSvg(it) {
   if (it.type === "sym") {
     const s = symOf(it), cx = s.box[0] + s.box[2] / 2, cy = s.box[1] + s.box[3] / 2;
     return `<g ${id} transform="translate(${it.x} ${it.y}) rotate(${it.rot}) scale(${it.flip ? -1 : 1} 1) translate(${-cx} ${-cy})">` +
-      symInner(`${it.product}|${it.size}|${it.variant}`, it.color, it.arrow, it.rot, it.flip) + `</g>`;
+      symInner(`${it.product}|${it.size}|${it.variant}`, it.color, it.arrow, it.rot, it.flip) + `</g>` + logoSvg(it);
   }
+  if (it.type === "dim") return dimSvg(it);
   if (it.type === "pipe") return pipeOutline(it) + pipeBody(it) + pipeLabel(it);
   if (it.type === "text") {
     const lines = (it.text || "Text").split("\n");
@@ -178,16 +256,23 @@ function pipeBody(it) {
   return o;
 }
 function pipeLabel(it) {
-  if (!it.label) return "";
-  const od = PIPE[it.nps][0];
-  let bi = 0, bl = -1;
-  for (let i = 0; i < it.pts.length - 1; i++) { const l = Math.hypot(it.pts[i + 1][0] - it.pts[i][0], it.pts[i + 1][1] - it.pts[i][1]); if (l > bl) { bl = l; bi = i; } }
-  const a = it.pts[bi], b = it.pts[bi + 1], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, fs = Math.max(9, od * 0.42);
-  let ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;          // text follows the run, never upside down
-  if (ang > 90) ang -= 180; if (ang <= -90) ang += 180;
-  const r = ang * Math.PI / 180, off = od / 2 + fs * 0.45, tx = mx + Math.sin(r) * off, ty = my - Math.cos(r) * off;
-  return `<text data-id="${it.id}" x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" font-family="Arial, Helvetica, sans-serif" font-size="${fs.toFixed(1)}" fill="#13233b" text-anchor="middle"` +
-    (Math.abs(ang) > 0.5 ? ` transform="rotate(${ang.toFixed(1)} ${tx.toFixed(2)} ${ty.toFixed(2)})"` : "") + `>${esc(it.nps)} SCH ${it.sch}</text>`;
+  if (!it.label && !it.len) return "";
+  const od = PIPE[it.nps][0], fs = Math.max(9, od * 0.42);
+  // text along segment i, never upside down; side +1 sits above the run (size label), -1 below (run length)
+  const along = (i, txt, side) => {
+    const a = it.pts[i], b = it.pts[i + 1], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+    let ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+    if (ang > 90) ang -= 180; if (ang <= -90) ang += 180;
+    const r = ang * Math.PI / 180, off = side > 0 ? od / 2 + fs * 0.45 : -(od / 2 + fs * 1.05), tx = mx + Math.sin(r) * off, ty = my - Math.cos(r) * off;
+    return `<text data-id="${it.id}" x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" font-family="Arial, Helvetica, sans-serif" font-size="${fs.toFixed(1)}" fill="#13233b" text-anchor="middle"` +
+      (Math.abs(ang) > 0.5 ? ` transform="rotate(${ang.toFixed(1)} ${tx.toFixed(2)} ${ty.toFixed(2)})"` : "") + `>${esc(txt)}</text>`;
+  };
+  const lens = it.pts.slice(1).map((p, i) => Math.hypot(p[0] - it.pts[i][0], p[1] - it.pts[i][1]));
+  let o = "";
+  if (it.label) { const bi = lens.indexOf(Math.max(...lens)); o += along(bi, `${it.nps} SCH ${it.sch}`, 1); }
+  // run lengths are centreline lengths, point to point (to where the turns' centrelines meet)
+  if (it.len) lens.forEach((l, i) => { if (l >= fs * 2) o += along(i, fmtLen(l), -1); });
+  return o;
 }
 function renderAll() {
   const live = doc.items.filter(valid), pipes = live.filter(i => i.type === "pipe"), rest = live.filter(i => i.type !== "pipe");
@@ -264,6 +349,14 @@ function snapPoint(p, prev, skipId, free, extraDir) {
   }
   return c;
 }
+// Dimension points snap to product connections, every pipe point (ends and turns), then pipe centrelines and the grid.
+function dimSnap(p) {
+  const tol = 11 / ui.view.s, t = snapTargets(null);
+  for (const it of doc.items) if (it.type === "pipe") t.push(...it.pts);
+  let best = null, bd = tol;
+  for (const q of t) { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; best = q; } }
+  return best ? [best[0], best[1]] : snapPoint(p, null, null, true).slice(0, 2);
+}
 function snapSym(it) {                                    // pull a product onto a nearby pipe end or port, else onto the grid
   const tol = 11 / ui.view.s, ps = portsOf(it), targets = snapTargets(it.id);
   let best = null, bd = tol;
@@ -283,12 +376,14 @@ function draw() {
     `<rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="#ffffff"/><rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="url(#gm)"/><rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="url(#gM)"/>`;
   o += renderAll();
   // connection points while routing pipe or moving things
-  if (ui.tool === "pipe" || ui.drag) for (const t of snapTargets(ui.drag && ui.drag.id)) o += `<circle cx="${t[0]}" cy="${t[1]}" r="${4 * px}" fill="#fff" stroke="#1f5fae" stroke-width="${1.5 * px}" pointer-events="none"/>`;
+  if (ui.tool === "pipe" || ui.tool === "dim" || ui.drag) for (const t of snapTargets(ui.drag && ui.drag.id)) o += `<circle cx="${t[0]}" cy="${t[1]}" r="${4 * px}" fill="#fff" stroke="#1f5fae" stroke-width="${1.5 * px}" pointer-events="none"/>`;
   const sel = selected();
   if (sel && valid(sel)) {
     const b = bboxOf(sel), m = 4 * px;
     o += `<rect x="${b[0] - m}" y="${b[1] - m}" width="${b[2] - b[0] + 2 * m}" height="${b[3] - b[1] + 2 * m}" fill="none" stroke="#1f5fae" stroke-width="${1.5 * px}" stroke-dasharray="${5 * px} ${4 * px}" pointer-events="none"/>`;
-    const hs = sel.type === "pipe" ? sel.pts : sel.type === "arrow" ? [sel.a, sel.b] : [];
+    const dg = sel.type === "dim" ? dimGeom(sel) : null;
+    const hs = sel.type === "pipe" ? sel.pts : sel.type === "arrow" ? [sel.a, sel.b] :
+      dg ? [sel.a, sel.b, [(dg.p1[0] + dg.p2[0]) / 2, (dg.p1[1] + dg.p2[1]) / 2]] : [];
     hs.forEach((p, i) => { o += `<rect data-h="${i}" x="${p[0] - 5 * px}" y="${p[1] - 5 * px}" width="${10 * px}" height="${10 * px}" fill="#fff" stroke="#1f5fae" stroke-width="${1.5 * px}" style="cursor:move"/>`; });
   }
   if (ui.draft) {
@@ -298,6 +393,11 @@ function draw() {
       o += `<path d="${pipePath(pts, ui.pipe.nps)}" fill="none" stroke="${ui.pipe.color}" stroke-opacity="0.55" stroke-width="${od}" stroke-linejoin="round" pointer-events="none"/>`;
     }
     if (ui.tool === "arrow" && pts.length > 1) o += `<line x1="${pts[0][0]}" y1="${pts[0][1]}" x2="${pts[1][0]}" y2="${pts[1][1]}" stroke="#1f5fae" stroke-width="${1.5 * px}" pointer-events="none"/>`;
+    if (ui.tool === "dim") {
+      const d = ui.draft;
+      if (d.pts.length === 1 && ui.cursor) o += `<line x1="${d.pts[0][0]}" y1="${d.pts[0][1]}" x2="${ui.cursor[0]}" y2="${ui.cursor[1]}" stroke="#1f5fae" stroke-width="${1.5 * px}" stroke-dasharray="${5 * px} ${4 * px}" pointer-events="none"/>`;
+      if (d.pts.length === 2) o += `<g pointer-events="none" opacity="0.75">${dimSvg(dimDraft(ui.cursor))}</g>`;
+    }
     pts.forEach(p => { o += `<circle cx="${p[0]}" cy="${p[1]}" r="${3 * px}" fill="#1f5fae" pointer-events="none"/>`; });
   }
   cv.innerHTML = o;
@@ -307,7 +407,17 @@ function draw() {
   $("board").className = "board t-" + ui.tool;
   $("tip").textContent = { select: sel ? "Drag to move. Delete removes it." : "Click an item to select it. Drag the sheet to pan, scroll to zoom.",
     pipe: ui.draft ? "Runs lock to 45° steps (hold Alt for any angle). Double-click or Enter to finish, Esc to cancel." : "Click to start a pipe. It snaps to product connections (blue dots).",
-    text: "Click where the label goes.", arrow: ui.draft ? "Click where the arrow points." : "Click where the arrow starts." }[ui.tool];
+    text: "Click where the label goes.", arrow: ui.draft ? "Click where the arrow points." : "Click where the arrow starts.",
+    dim: !ui.draft ? "Click the first point. It snaps to connections and pipe ends and turns." : ui.draft.pts.length === 1 ? "Click the second point." :
+      "Move to place the dimension line, then click. Esc cancels." }[ui.tool];
+}
+// The dimension being placed: its two points are set, the cursor sets the offset of the dimension line.
+function dimDraft(cur) {
+  const [a, b] = ui.draft.pts, it = { id: 0, type: "dim", a, b, mode: ui.dim.mode, off: 0, color: ui.dim.color, size: 1 };
+  const g = dimGeom(it);
+  it.size = ui.dim.size || autoDimSize(g.L);
+  if (cur) it.off = Math.round(((cur[0] - a[0]) * g.n[0] + (cur[1] - a[1]) * g.n[1]) * 100) / 100;
+  return it;
 }
 const selected = () => doc.items.find(i => i.id === ui.sel) || null;
 
@@ -320,7 +430,7 @@ function commit() {
 }
 function loadDoc(d) {
   if (!d || !Array.isArray(d.items)) throw new Error("bad file");
-  doc = { v: 1, style: Object.assign({ shade: true, blackLines: false }, d.style || {}), items: d.items.filter(i => i && ["sym", "pipe", "text", "arrow"].includes(i.type) && (i.type !== "pipe" || PIPE[i.nps])) };
+  doc = { v: 1, style: Object.assign({}, STYLE0, d.style || {}), items: d.items.filter(i => i && ["sym", "pipe", "text", "arrow", "dim"].includes(i.type) && (i.type !== "pipe" || PIPE[i.nps])) };
   doc.items.forEach(i => { i.id = nextId++; });
   ui.sel = null; ui.draft = null;
 }
@@ -346,7 +456,8 @@ function panel() {
   $("gPipe").hidden = !(kind === "pipe" || (!sel && ui.tool === "pipe"));
   $("gText").hidden = !(kind === "text" || (!sel && ui.tool === "text"));
   $("gArrow").hidden = !(kind === "arrow" || (!sel && ui.tool === "arrow"));
-  ["Select", "Pipe", "Text", "Arrow"].forEach(t => $("t" + t).setAttribute("aria-pressed", ui.tool === t.toLowerCase()));
+  $("gDim").hidden = !(kind === "dim" || (!sel && ui.tool === "dim"));
+  ["Select", "Pipe", "Text", "Arrow", "Dim"].forEach(t => $("t" + t).setAttribute("aria-pressed", ui.tool === t.toLowerCase()));
   $("bRot").disabled = !(kind === "sym" || kind === "pipe"); $("bFlip").disabled = kind !== "sym";
   $("bRot").textContent = kind === "pipe" ? "Rotate 45°" : "Rotate"; $("bDup").disabled = $("bDel").disabled = !sel;
   $("bUndo").disabled = hi <= 0; $("bRedo").disabled = hi >= hist.length - 1;
@@ -379,6 +490,13 @@ function panel() {
       });
     }
     $("prodmeta").innerHTML = `<b>${esc(p.name)}</b> · ${esc(p.type)} · ${esc(p.ti)}`;
+    $("sizeLabel").textContent = p.sizeLabel || "Size";
+    // Spirax Sarco logo: on/off, where it sits and how big
+    $("logoWrap").hidden = !LOGO;
+    $("symLogo").checked = !!tgt.logo; $("symLogo").onchange = e => set("logo", e.target.checked);
+    $("logoOpts").hidden = !tgt.logo;
+    chipRow($("logoPos"), LOGO_POS.map(v => v[0]), tgt.logoPos || "center", v => set("logoPos", v), v => LOGO_POS.find(q => q[0] === v)[1]);
+    chipRow($("logoSize"), Object.keys(LOGO_SIZE), tgt.logoSize || "M", v => set("logoSize", v), v => ({ S: "Small", M: "Medium", L: "Large" })[v]);
     chipRow($("sizes"), p.sizes, tgt.size, v => { tgt.size = v; if (!variantsOf(p, v).includes(tgt.variant)) tgt.variant = variantsOf(p, v)[0]; if (editing) commit(); else panel(); });
     const vs = variantsOf(p, tgt.size);
     $("variantRow").hidden = $("variants").hidden = vs.length < 2 && vs[0] === "-";
@@ -400,6 +518,7 @@ function panel() {
   $("nps").value = pt.nps; $("sch").value = String(pt.sch); $("pipeLabel").checked = !!pt.label; $("pipeCut").checked = !!pt.cut;
   $("nps").onchange = e => pset("nps", e.target.value); $("sch").onchange = e => pset("sch", +e.target.value);
   $("pipeLabel").onchange = e => pset("label", e.target.checked); $("pipeCut").onchange = e => pset("cut", e.target.checked);
+  $("pipeLen").checked = !!pt.len; $("pipeLen").onchange = e => pset("len", e.target.checked);
   swatches($("pipeColors"), pt.color, v => pset("color", v));
   const [od, w40, w80] = PIPE[pt.nps], wall = pt.sch === 80 ? w80 : w40;
   $("pipeMeta").textContent = `OD ${(od / 25.4).toFixed(3)}", wall ${(wall / 25.4).toFixed(3)}", ID ${((od - 2 * wall) / 25.4).toFixed(3)}"`;
@@ -415,12 +534,25 @@ function panel() {
   const at = kind === "arrow" ? sel : ui.arrow;
   $("arrowHint").hidden = kind === "arrow";
   swatches($("arrowColors"), at.color, v => { at.color = v; if (kind === "arrow") commit(); else panel(); });
+
+  // dimensions, and the units used for every length on the drawing
+  const dt = kind === "dim" ? sel : ui.dim, de = kind === "dim", dset = (k, v) => { dt[k] = v; if (de) commit(); else panel(); };
+  $("dimTitle").textContent = de ? "Selected dimension" : "Dimension"; $("dimHint").hidden = de;
+  chipRow($("dimMode"), ["aligned", "h", "v"], dt.mode, v => dset("mode", v), v => ({ aligned: "Aligned", h: "Horizontal", v: "Vertical" })[v]);
+  if (document.activeElement !== $("dimSize")) $("dimSize").value = dt.size || "";
+  $("dimSize").placeholder = "Auto";
+  $("dimSize").oninput = e => { const v = +e.target.value; dt.size = v ? Math.max(3, Math.min(400, v)) : (de ? autoDimSize(dimGeom(dt).L) : 0);
+    if (de) { draw(); clearTimeout(panel.t); panel.t = setTimeout(commit, 500); } };
+  swatches($("dimColors"), dt.color, v => dset("color", v));
+  $("dimMeta").textContent = de ? `Measures ${fmtLen(dimGeom(sel).L, "ftin")} · ${fmtLen(dimGeom(sel).L, "mm")}` : "";
+  chipRow($("units"), UNITS.map(u => u[0]), doc.style.units, v => { doc.style.units = v; commit(); }, v => UNITS.find(u => u[0] === v)[1]);
 }
 
 // ---------------------------------------------------------------- actions
 function setTool(t) { ui.tool = t; ui.draft = null; ui.cursor = null; if (t !== "select") ui.sel = null; refresh(); }
 function addProduct() {
-  const k = ui.pick, it = { id: nextId++, type: "sym", product: k.product, size: k.size, variant: k.variant, color: k.color, arrow: k.arrow, rot: 0, flip: false, x: ui.view.cx, y: ui.view.cy };
+  const k = ui.pick, it = { id: nextId++, type: "sym", product: k.product, size: k.size, variant: k.variant, color: k.color, arrow: k.arrow, rot: 0, flip: false, x: ui.view.cx, y: ui.view.cy,
+    logo: !!k.logo, logoPos: k.logoPos, logoSize: k.logoSize };
   doc.items.push(it); snapSym(it); ui.sel = it.id; ui.tool = "select"; commit();
 }
 function finishPipe() {
@@ -431,7 +563,7 @@ function del() { if (!ui.sel) return; doc.items = doc.items.filter(i => i.id !==
 function dup() {
   const s = selected(); if (!s) return;
   const c = JSON.parse(JSON.stringify(s)); c.id = nextId++;
-  if (c.type === "pipe") c.pts = c.pts.map(p => [p[0] + 20, p[1] + 20]); else if (c.type === "arrow") { c.a = [c.a[0] + 20, c.a[1] + 20]; c.b = [c.b[0] + 20, c.b[1] + 20]; } else { c.x += 20; c.y += 20; }
+  if (c.type === "pipe") c.pts = c.pts.map(p => [p[0] + 20, p[1] + 20]); else if (c.type === "arrow" || c.type === "dim") { c.a = [c.a[0] + 20, c.a[1] + 20]; c.b = [c.b[0] + 20, c.b[1] + 20]; } else { c.x += 20; c.y += 20; }
   doc.items.push(c); ui.sel = c.id; commit();
 }
 function rotate() {
@@ -468,6 +600,18 @@ cv.addEventListener("pointerdown", e => {
     else { const it = { id: nextId++, type: "arrow", a: ui.draft.pts[0], b: p, color: ui.arrow.color, w: 1.6 }; ui.draft = null; doc.items.push(it); ui.sel = it.id; ui.tool = "select"; commit(); }
     return;
   }
+  if (ui.tool === "dim") {
+    if (!ui.draft || ui.draft.pts.length < 2) {
+      const p = dimSnap(w);
+      if (!ui.draft) ui.draft = { pts: [p] };
+      else if (Math.hypot(p[0] - ui.draft.pts[0][0], p[1] - ui.draft.pts[0][1]) > 0.5) { ui.draft.pts.push(p); ui.cursor = w; }
+      draw();
+    } else {
+      const it = dimDraft(w); it.id = nextId++; ui.draft = null; ui.cursor = null;
+      doc.items.push(it); ui.sel = it.id; commit();
+    }
+    return;
+  }
   if (ui.tool === "text") {
     const it = { id: nextId++, type: "text", x: gridSnap(w[0]), y: gridSnap(w[1]), text: ui.text.text || "Label", size: ui.text.size, color: ui.text.color };
     doc.items.push(it); ui.sel = it.id; ui.tool = "select"; commit(); $("textVal").focus(); $("textVal").select();
@@ -486,18 +630,25 @@ cv.addEventListener("pointerdown", e => {
 cv.addEventListener("pointermove", e => {
   const w = toWorld(e), d = ui.drag;
   if (!d) {
-    if (ui.draft) { const prev = ui.draft.pts[ui.draft.pts.length - 1]; ui.cursor = ui.tool === "pipe" ? snapPoint(w, prev, null, e.altKey, ui.draft.pts.length === 1 ? ui.draft.dir : null).slice(0, 2) : w; draw(); }
+    if (ui.draft) { const prev = ui.draft.pts[ui.draft.pts.length - 1];
+      ui.cursor = ui.tool === "pipe" ? snapPoint(w, prev, null, e.altKey, ui.draft.pts.length === 1 ? ui.draft.dir : null).slice(0, 2) :
+        ui.tool === "dim" && ui.draft.pts.length === 1 ? dimSnap(w) : w; draw(); }
     return;
   }
   if (d.kind === "pan") { ui.view.cx = d.cx - (e.clientX - d.sx) / ui.view.s; ui.view.cy = d.cy - (e.clientY - d.sy) / ui.view.s; d.moved = true; draw(); return; }
   const it = doc.items.find(i => i.id === d.id); if (!it) return;
   d.moved = true;
   if (d.kind === "handle") {
-    if (it.type === "pipe") it.pts[d.i] = snapPoint(w, null, it.id, true).slice(0, 2); else it[d.i ? "b" : "a"] = [Math.round(w[0]), Math.round(w[1])];
+    if (it.type === "pipe") it.pts[d.i] = snapPoint(w, null, it.id, true).slice(0, 2);
+    else if (it.type === "dim") {
+      if (d.i < 2) it[d.i ? "b" : "a"] = dimSnap(w);
+      else { const g = dimGeom(it); it.off = Math.round(((w[0] - it.a[0]) * g.n[0] + (w[1] - it.a[1]) * g.n[1]) * 100) / 100; }
+    } else it[d.i ? "b" : "a"] = [Math.round(w[0]), Math.round(w[1])];
   } else {
     const o = JSON.parse(d.orig), dx = w[0] - d.start[0], dy = w[1] - d.start[1];
     if (it.type === "pipe") { const sx = gridSnap(dx), sy = gridSnap(dy); it.pts = o.pts.map(p => [p[0] + sx, p[1] + sy]); }
     else if (it.type === "arrow") { it.a = [o.a[0] + dx, o.a[1] + dy]; it.b = [o.b[0] + dx, o.b[1] + dy]; }
+    else if (it.type === "dim") { const sx = gridSnap(dx), sy = gridSnap(dy); it.a = [o.a[0] + sx, o.a[1] + sy]; it.b = [o.b[0] + sx, o.b[1] + sy]; }
     else { it.x = o.x + dx; it.y = o.y + dy; if (it.type === "sym") snapSym(it); else { it.x = gridSnap(it.x); it.y = gridSnap(it.y); } }
   }
   draw();
@@ -518,6 +669,7 @@ window.addEventListener("keydown", e => {
   else if (mod && k === "d") { e.preventDefault(); dup(); }
   else if (k === "r" && !mod) rotate(); else if (k === "m" && !mod) mirror();
   else if (k === "v" && !mod) setTool("select"); else if (k === "p" && !mod) setTool("pipe"); else if (k === "t" && !mod) setTool("text");
+  else if (k === "d" && !mod) setTool("dim");
 });
 
 // ---------------------------------------------------------------- export
@@ -572,7 +724,7 @@ $("clearBtn").addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------- wiring
-[["tSelect", "select"], ["tPipe", "pipe"], ["tText", "text"], ["tArrow", "arrow"]].forEach(([id, t]) => $(id).addEventListener("click", () => setTool(t)));
+[["tSelect", "select"], ["tPipe", "pipe"], ["tText", "text"], ["tArrow", "arrow"], ["tDim", "dim"]].forEach(([id, t]) => $(id).addEventListener("click", () => setTool(t)));
 $("addBtn").addEventListener("click", addProduct);
 $("bRot").addEventListener("click", rotate); $("bFlip").addEventListener("click", mirror); $("bDup").addEventListener("click", dup); $("bDel").addEventListener("click", del);
 $("bUndo").addEventListener("click", () => step(-1)); $("bRedo").addEventListener("click", () => step(1));

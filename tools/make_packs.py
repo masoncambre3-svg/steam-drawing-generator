@@ -22,9 +22,10 @@ sys.path.insert(0, HERE)
 CATALOG = os.path.join(HERE, "catalog.json")
 
 
-def parts(s, arrow_spec=None):
-    """Turn a traced symbol object (fill, strokes, ports, d, box) into pack data."""
-    fill = " ".join("M" + " L".join(f"{x:.2f},{y:.2f}" for x, y in poly) + "Z" for poly in s.fill)
+def parts(s, arrow_spec=None, dec=2):
+    """Turn a traced symbol object (fill, strokes, ports, d, box) into pack data.
+    dec: decimals written for coordinates (1 is plenty for very large drawings like the manifolds)."""
+    fill = " ".join("M" + " L".join(f"{x:.{dec}f},{y:.{dec}f}" for x, y in poly) + "Z" for poly in s.fill)
     by = {}
     for lw, segs in s.strokes:
         by.setdefault(round(lw, 3), []).append(segs)
@@ -36,8 +37,8 @@ def parts(s, arrow_spec=None):
             for sg in segs:
                 a = sg[1]
                 if last is None or abs(a[0]-last[0]) > 1e-3 or abs(a[1]-last[1]) > 1e-3:
-                    ds.append(f"M{a[0]:.2f},{a[1]:.2f}")
-                ds.append(f"L{sg[2][0]:.2f},{sg[2][1]:.2f}" if sg[0] == "l" else "C" + " ".join(f"{p[0]:.2f},{p[1]:.2f}" for p in sg[2:]))
+                    ds.append(f"M{a[0]:.{dec}f},{a[1]:.{dec}f}")
+                ds.append(f"L{sg[2][0]:.{dec}f},{sg[2][1]:.{dec}f}" if sg[0] == "l" else "C" + " ".join(f"{p[0]:.{dec}f},{p[1]:.{dec}f}" for p in sg[2:]))
                 last = sg[-1]
         strokes.append([lw, "".join(ds)])
     arrow = None
@@ -131,6 +132,14 @@ def build_traps(only=None):
                    dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
                         source="Redrawn by hand from the TI picture" if model == "FT450" else "Traced from the TI outline drawing",
                         note=FT_NOTE if model == "FT450" else ""), syms)
+    import universal as UN
+    for model, d in UN.DATA.items():
+        if only and only != model:
+            continue
+        syms = {f"{model}|{size}|{v}": parts(UN.Universal(model, size, v)) for size in d["sizes"] for v in d["variants"]}
+        write_pack("steam-traps", "Steam traps", model,
+                   dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
+                        sizeLabel=d.get("sizeLabel", "Size"), source="Traced from the TI outline drawing", note=d["note"]), syms)
 
 
 def build_strainers(only=None):
@@ -198,8 +207,20 @@ def build_separators(only=None):
                         note=d["note"]), syms)
 
 
+def build_manifolds(only=None):
+    import manifolds as MF
+    for model, d in MF.DATA.items():
+        if only and only != model:
+            continue
+        syms = {f"{model}|{n}|{v}": parts(MF.Manifold(model, n, v), dec=1) for n in d["sizes"] for v in d["variants"]}
+        write_pack("manifolds", "Manifolds", model,
+                   dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
+                        sizeLabel="Stations", variantLabel="Stand", source="Traced from the TI outline drawing",
+                        note=d["note"]), syms)
+
+
 BUILDERS = {"steam-traps": build_traps, "strainers": build_strainers, "valves": build_valves, "pumps": build_pumps,
-            "separators": build_separators}
+            "separators": build_separators, "manifolds": build_manifolds}
 
 if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if not a.startswith("--")]

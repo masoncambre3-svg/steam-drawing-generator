@@ -16,6 +16,7 @@ window.SDG = {
   load("products/index.js")
     .then(async () => {
       for (const p of SDG.list) { try { await load("products/" + p); } catch (e) { SDG.failed.push(p); } }
+      try { await load("app/logo.js"); } catch (e) {}
       return load("app/app.js");
     })
     .catch(() => { document.getElementById("status").textContent = "Could not load the product library (products/index.js)."; });

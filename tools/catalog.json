@@ -9,7 +9,8 @@
     "FT450",
     "IBV-C",
     "BPC32Y",
-    "SMC32Y"
+    "SMC32Y",
+    "UFT32"
    ]
   },
   {
@@ -47,6 +48,14 @@
     "S6",
     "S4A",
     "S4A-FL"
+   ]
+  },
+  {
+   "slug": "manifolds",
+   "name": "Manifolds",
+   "products": [
+    "MSC",
+    "MSD"
    ]
   }
  ]

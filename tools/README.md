@@ -35,6 +35,8 @@ Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for
 - `strainers.py`  Fig 16HP, 16L, 34, 34HP, 36, 36HP; cap slides along the leg to hit dimension B; drain port
 - `valves.py`     A3S / A3SS; handwheel scaled as a unit to dimension C
 - `pumps.py`      Pivotrol PTF and PTF Top; nozzles and check valves scaled as a unit to dimension A
+- `universal.py`  UFT32 trap unit (traced, x to A, y to B, connector centreline at C; one port at the connector face)
+- `manifolds.py`  MSC / MSD manifolds; station count made by repeating 4-station header blocks (see below)
 - `separators.py` S5 / S6 (traced; caps keep drawn size, body to H, plugs slid to B and C, nozzles to A) and
                   S4A / S4A-FL (hand-built from helper shapes, all sizes from the TI table)
 - `make_packs.py` writes packs, previews, catalog and index
@@ -62,6 +64,23 @@ Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for
 - When checking a pack against the TI table, the fill runs to the outer edge of the stroke and `box` adds another
   half line. Centreline size = box minus two line widths.
 - The ports list can carry more than three connections; extras (vent, motive, exhaust) have no direction.
+- MSC / MSD (TI-P115-03-US): traced from the 12-station front elevations, p7 and p8, left (no stand) and right
+  (with stand) drawings. Every line on those pages is 0.5 pt, so outline vs detail can't be split by width; all of
+  it goes in. Station count: the linework is cut into head / one 4-station block / tail at heights just below the
+  header joints (only straight header walls cross them; `_band` clips lines and keeps curves whole), then
+  N = head + (N/4 - 1) blocks + tail. Scale: one block = 2 x B from the TI table (210 MSC, 160 MSD).
+- The p7-8 drawings are "reference only" and the with-stand drawings disagree with their own overall height
+  (65", 64-3/4"). The stand leg is cut and moved so the 12-station overall matches the TI number.
+- Very dense sheets (p7 has 18,000 strokes, mostly near-zero pieces) make huge packs. `manifolds.simplify()`
+  flattens each chain and runs Douglas-Peucker at 0.25 mm, and `parts(..., dec=1)` writes one decimal. That took
+  MSC from about 5 MB to 1.6 MB with no visible change. Use both for any big assembly drawing.
+- `parts()` passes any extra product keys through. `sizeLabel` (e.g. "Stations", "Model") and `variantLabel`
+  change the panel labels in the app.
+- app/logo.js is the vector logo from the cover of TI-P146-05 (11 filled paths, nonzero fill). Any TI cover has
+  the same logo if it ever needs redoing.
+- Still to do from TI-P115-03-US: 1-1/2" header and Class 300 flanges (only the drawn 2" Class 150 flange is
+  shown), the bare-body side view on p6, and the no-trap MSC. UFT32 connectors (PC10HP, PC20, PC3_, PC4_)
+  need TI-P128.
 
 ## Conventions the app relies on
 

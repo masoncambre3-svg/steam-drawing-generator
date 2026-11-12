@@ -103,3 +103,4 @@ dialog > .hint { padding: 0 16px 14px; }
 .list .drw.open { background: var(--accent-soft); }
 .list .dn { flex: 1; min-width: 0; display: flex; flex-direction: column; } .list .dn span { font-weight: 600; overflow-wrap: anywhere; }
 .btn.sm { padding: 4px 8px; font-size: 12px; }
+.eq label { min-width: 120px; } .eq input[type="text"] { width: 110px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }

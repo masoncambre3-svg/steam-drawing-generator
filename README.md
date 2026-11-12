@@ -47,6 +47,11 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
   A selected pipe lists every run's length; change one and the rest of the pipe moves with it.
 - Grouping: Shift+click or Shift+drag a box to select several items, then Group (Ctrl+G). A group moves, copies,
   rotates and deletes as one. Alt+click edits one item inside a group. Ctrl+A selects everything.
+- Equipment (app/equipment.js): U-tube exchanger, open tank with helical coil, air heater coil, jacketed kettle.
+  Not traced: each is drawn from the sizes you type in the panel (nozzle sizes picked from a list), so it matches
+  the real unit. Select one and drag the blue diamonds to stretch it. Hidden parts (tube bundle, coil in the tank,
+  vessel wall inside the jacket) are dashed. Every nozzle is a connection point. To add another piece of equipment,
+  add a builder and an entry to EQUIP in that file; app.js picks it up.
 - Projects: save drawings by name into projects (kept in the browser). The open drawing saves as you work.
   Export a project to one .json file to back it up or move it; Import or Open reads it back.
 - Spirax Sarco logo: tick it on any product, then pick on the body, above or below, and the size.

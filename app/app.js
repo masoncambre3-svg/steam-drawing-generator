@@ -24,6 +24,21 @@ LIB.products.push(
   { id: "TEE", name: "Tee", type: "Straight or reducing, butt weld", ti: "ASME B16.9", family: "Fittings", sizes: FSIZES, variantsFor: s => [s, ...smaller(s, 4).reverse()], variantLabel: "Branch size", fit: true },
   { id: "REDC", name: "Concentric reducer", type: "Butt weld", ti: "ASME B16.9", family: "Fittings", sizes: FSIZES.slice(1), variantsFor: s => smaller(s, 4).reverse(), variantLabel: "Small end", fit: true },
   { id: "REDE", name: "Eccentric reducer", type: "Butt weld, flat on bottom as placed", ti: "ASME B16.9", family: "Fittings", sizes: FSIZES.slice(1), variantsFor: s => smaller(s, 4).reverse(), variantLabel: "Small end", fit: true });
+// Equipment drawn from typed dimensions (app/equipment.js): exchangers, tanks with coils, air heater coils, kettles
+const EQ = window.EQUIP || {};
+if (Object.keys(EQ).length) {
+  LIB.families.splice(LIB.families.indexOf("Fittings"), 0, "Equipment");
+  for (const [id, e] of Object.entries(EQ)) LIB.products.push({ id, name: e.name, type: e.type, ti: "Drawn from your dimensions", family: "Equipment",
+    sizes: ["-"], variants: e.variants, variantLabel: e.variantLabel, note: e.note, eq: true });
+}
+const EQC = {}; let eqcN = 0;
+function eqSym(id, prm, variant) {
+  const k = `${id}|${variant}|${JSON.stringify(prm)}`;
+  if (EQC[k]) return EQC[k];
+  if (++eqcN > 400) { for (const q in EQC) delete EQC[q]; eqcN = 1; }
+  try { return (EQC[k] = EQ[id].build(Object.assign({}, EQ[id].defaults, prm), variant)); } catch (e) { return null; }
+}
+const eqDefaults = id => JSON.parse(JSON.stringify(EQ[id].defaults));
 const variantsOf = (p, size) => p.variantsFor ? p.variantsFor(size) : p.variants;
 const FITS = {};
 function fitGeom(product, size, variant) {
@@ -56,7 +71,7 @@ const PRESETS = [["Blue", "#3f86dc"], ["Navy", "#1f3f73"], ["Steel grey", "#8d99
                  ["Orange", "#e58a2b"], ["Yellow", "#e9c53c"], ["Green", "#3f9a5f"], ["White", "#f2f4f7"]];
 const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
-const BUILD = "8";
+const BUILD = "9";
 const LOGO = window.SDG_LOGO || null;                       // vector Spirax Sarco logo, app/logo.js
 const STYLE0 = { shade: true, blackLines: false, units: "ftin", prec: 1 };
 const UNITS = [["ftin", "ft-in"], ["in", "in"], ["mm", "mm"]];
@@ -177,7 +192,7 @@ function pal(color) {
 }
 
 // ---------------------------------------------------------------- geometry
-const symOf = it => lookup(`${it.product}|${it.size}|${it.variant}`);
+const symOf = it => EQ[it.product] ? eqSym(it.product, it.prm || {}, it.variant) : lookup(`${it.product}|${it.size}|${it.variant}`);
 function symXform(it) {
   const s = symOf(it), cx = s.box[0] + s.box[2] / 2, cy = s.box[1] + s.box[3] / 2;
   const a = it.rot * Math.PI / 180, co = Math.cos(a), si = Math.sin(a), f = it.flip ? -1 : 1;
@@ -234,11 +249,11 @@ function pipePath(pts, nps) {
 
 // ---------------------------------------------------------------- drawing each item
 let gradN = 0;
-function symInner(key, color, arrow, rot, flip) {
-  const s = lookup(key), p = pal(color), gid = "g" + (++gradN);
+function symInner(s, color, arrow, rot, flip) {
+  const p = pal(color), gid = "g" + (++gradN);
   let o = `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1" gradientTransform="rotate(${-rot * (flip ? -1 : 1)} .5 .5)">` +
     `<stop offset="0" stop-color="${p.top}"/><stop offset="1" stop-color="${p.bot}"/></linearGradient></defs><path d="${s.fill}" fill="${s.flat ? p.mid : `url(#${gid})`}"/>`;
-  for (const [lw, d] of s.strokes) o += `<path d="${d}" fill="none" stroke="${p.line}" stroke-width="${lw}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  for (const [lw, d, dash] of s.strokes) o += `<path d="${d}" fill="none" stroke="${p.line}" stroke-width="${lw}" stroke-linecap="round" stroke-linejoin="round"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
   if (s.arrow && arrow) o += `<polygon points="${s.arrow[0]}" fill="${p.arrow}" stroke="${p.line}" stroke-width="${s.arrow[1]}" stroke-linejoin="round"/>`;
   return o;
 }
@@ -247,7 +262,7 @@ function itemSvg(it) {
   if (it.type === "sym") {
     const s = symOf(it), cx = s.box[0] + s.box[2] / 2, cy = s.box[1] + s.box[3] / 2;
     return `<g ${id} transform="translate(${it.x} ${it.y}) rotate(${it.rot}) scale(${it.flip ? -1 : 1} 1) translate(${-cx} ${-cy})">` +
-      symInner(`${it.product}|${it.size}|${it.variant}`, it.color, it.arrow, it.rot, it.flip) + `</g>` + logoSvg(it);
+      symInner(s, it.color, it.arrow, it.rot, it.flip) + `</g>` + logoSvg(it);
   }
   if (it.type === "dim") return dimSvg(it);
   if (it.type === "pipe") return pipeOutline(it) + pipeBody(it) + pipeLabel(it);
@@ -412,6 +427,11 @@ function draw() {
     const dg = sel.type === "dim" ? dimGeom(sel) : null;
     const hs = sel.type === "pipe" ? sel.pts : sel.type === "arrow" ? [sel.a, sel.b] :
       dg ? [sel.a, sel.b, [(dg.p1[0] + dg.p2[0]) / 2, (dg.p1[1] + dg.p2[1]) / 2]] : [];
+    if (sel.type === "sym" && EQ[sel.product]) {                // equipment: drag to stretch
+      const T = symXform(sel);
+      (symOf(sel).grips || []).forEach((gp, i) => { const q = T(gp.p);
+        o += `<path data-g="${i}" d="M${q[0]},${q[1] - 7 * px}L${q[0] + 7 * px},${q[1]}L${q[0]},${q[1] + 7 * px}L${q[0] - 7 * px},${q[1]}Z" fill="#1f5fae" stroke="#fff" stroke-width="${1.5 * px}" style="cursor:grab"/>`; });
+    }
     hs.forEach((p, i) => { o += `<rect data-h="${i}" x="${p[0] - 5 * px}" y="${p[1] - 5 * px}" width="${10 * px}" height="${10 * px}" fill="#fff" stroke="#1f5fae" stroke-width="${1.5 * px}" style="cursor:move"/>`; });
   }
   if (ui.draft) {
@@ -521,20 +541,54 @@ function panel() {
     $("families").hidden = $("products").hidden = $("addBtn").hidden = editing;
     if (!editing) {
       chipRow($("families"), LIB.families, ui.pick.family, v => {
-        if (v === "Fittings" && ui.pick.family !== "Fittings") { ui.pick.prevColor = ui.pick.color; ui.pick.color = ui.pipe.color; }
-        if (v !== "Fittings" && ui.pick.family === "Fittings" && ui.pick.prevColor) ui.pick.color = ui.pick.prevColor;
+        const grey = f => f === "Fittings" || f === "Equipment";           // fittings and equipment start out pipe grey
+        if (grey(v) && !grey(ui.pick.family)) { ui.pick.prevColor = ui.pick.color; ui.pick.color = ui.pipe.color; }
+        if (!grey(v) && grey(ui.pick.family) && ui.pick.prevColor) ui.pick.color = ui.pick.prevColor;
         ui.pick.family = v; panel(); });
       const box = $("products"); box.innerHTML = ""; gradN = 1000;
       LIB.products.filter(q => q.family === ui.pick.family).forEach(q => {
         const b = document.createElement("button"); b.type = "button"; b.className = "prod"; b.setAttribute("aria-pressed", q.id === ui.pick.product);
-        const ts = q.sizes[Math.min(q.fit ? 5 : 1, q.sizes.length - 1)], k = `${q.id}|${ts}|${variantsOf(q, ts)[q.fit && variantsOf(q, ts).length > 2 ? 2 : 0]}`, s = lookup(k);
-        b.innerHTML = `<svg viewBox="${s.box[0] - 1} ${s.box[1] - 1} ${s.box[2] + 2} ${s.box[3] + 2}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${symInner(k, ui.pick.color, false, 0, false)}</svg><span></span>`;
+        const ts = q.sizes[Math.min(q.fit ? 5 : 1, q.sizes.length - 1)], k = `${q.id}|${ts}|${variantsOf(q, ts)[q.fit && variantsOf(q, ts).length > 2 ? 2 : 0]}`;
+        const s = q.eq ? eqSym(q.id, {}, q.variants[0]) : lookup(k);
+        b.innerHTML = `<svg viewBox="${s.box[0] - 1} ${s.box[1] - 1} ${s.box[2] + 2} ${s.box[3] + 2}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${symInner(s, ui.pick.color, false, 0, false)}</svg><span></span>`;
         b.querySelector("span").textContent = q.name.split(" /")[0];
         b.addEventListener("click", () => { ui.pick.product = q.id; panel(); }); box.appendChild(b);
       });
     }
     $("prodmeta").innerHTML = `<b>${esc(p.name)}</b> · ${esc(p.type)} · ${esc(p.ti)}`;
     $("sizeLabel").textContent = p.sizeLabel || "Size";
+    $("sizeLabel").parentElement.hidden = $("sizes").hidden = !!p.eq;
+    // equipment: its dimensions, typed in (lengths in the drawing's units) or picked (nozzle sizes)
+    $("eqParams").hidden = !p.eq;
+    if (p.eq) {
+      const E = EQ[p.id];
+      if (!editing) { ui.pick.prms = ui.pick.prms || {}; ui.pick.prms[p.id] = ui.pick.prms[p.id] || eqDefaults(p.id); }
+      const prm = editing ? (sel.prm = sel.prm || eqDefaults(p.id)) : ui.pick.prms[p.id], box = $("eqParams");
+      if (!box.contains(document.activeElement) || box.dataset.for !== `${editing ? sel.id : "pick"}|${p.id}`) {
+        box.dataset.for = `${editing ? sel.id : "pick"}|${p.id}`; box.innerHTML = "";
+        const val = k => prm[k] !== undefined ? prm[k] : E.defaults[k];
+        const put = (k, v) => { prm[k] = v; if (editing) commit(); else panel(); };
+        for (const fd of E.fields) {
+          if ((fd.k === "S" && tgt.variant !== "on saddles") || (fd.k === "Lg" && tgt.variant !== "on legs")) continue;
+          const r = document.createElement("div"); r.className = "row eq"; const id = "eq_" + fd.k;
+          r.innerHTML = `<label for="${id}"></label>`; r.querySelector("label").textContent = fd.label;
+          let inp;
+          if (fd.t === "nps") { inp = document.createElement("select"); fd.opts.forEach(o => { const op = document.createElement("option"); op.value = op.textContent = o; inp.appendChild(op); }); inp.value = val(fd.k);
+            inp.addEventListener("change", () => put(fd.k, inp.value)); }
+          else {
+            inp = document.createElement("input"); inp.type = "text"; inp.autocomplete = "off";
+            inp.value = fd.t === "num" ? val(fd.k) : fmtLen(val(fd.k), null, 0.0625);
+            inp.addEventListener("change", () => {
+              const v = fd.t === "num" ? Math.round(+inp.value) : parseLen(inp.value);
+              if (!v && v !== 0 || isNaN(v)) { say(`"${inp.value}" isn't a size I can read. Try 48, 4'-0" or 1200mm.`, "warn"); panel(); return; }
+              put(fd.k, Math.max(fd.min, Math.min(fd.max, v)));
+            });
+            inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); });
+          }
+          inp.id = id; r.appendChild(inp); box.appendChild(r);
+        }
+      }
+    }
     // Spirax Sarco logo: on/off, where it sits and how big
     $("logoWrap").hidden = !LOGO;
     $("symLogo").checked = !!tgt.logo; $("symLogo").onchange = e => set("logo", e.target.checked);
@@ -547,11 +601,11 @@ function panel() {
     $("variantLabel").textContent = p.variantLabel || "Connection";
     chipRow($("variants"), vs, tgt.variant, v => set("variant", v), v => VARIANT_LABEL[v] || (v[0].toUpperCase() + v.slice(1)));
     swatches($("symColors"), tgt.color, v => set("color", v));
-    const s = lookup(`${tgt.product}|${tgt.size}|${tgt.variant}`);
+    const s = p.eq ? eqSym(p.id, editing ? sel.prm || {} : ui.pick.prms[p.id], tgt.variant) : lookup(`${tgt.product}|${tgt.size}|${tgt.variant}`);
     $("symArrow").checked = !!tgt.arrow; $("symArrowWrap").hidden = !(s && s.arrow);
     $("symArrow").onchange = e => set("arrow", e.target.checked);
     const inch = mm => (mm / 25.4).toFixed(mm / 25.4 >= 10 ? 1 : 2) + '"';
-    $("dims").innerHTML = s ? `<tr><th>${p.fit ? "Dimension" : "TI dim"}</th><th>in</th><th>mm</th></tr>` + Object.keys(s.dims).map(k => `<tr><td>${k}</td><td>${inch(s.dims[k])}</td><td>${s.dims[k]}</td></tr>`).join("") : "";
+    $("dims").innerHTML = s ? `<tr><th>${p.fit || p.eq ? "Dimension" : "TI dim"}</th><th>in</th><th>mm</th></tr>` + Object.keys(s.dims).map(k => `<tr><td>${k}</td><td>${inch(s.dims[k])}</td><td>${s.dims[k]}</td></tr>`).join("") : "";
     $("prodNote").hidden = !p.note; $("prodNote").textContent = p.note || "";
   }
 
@@ -616,6 +670,7 @@ function setTool(t) { ui.tool = t; ui.draft = null; ui.cursor = null; if (t !== 
 function addProduct() {
   const k = ui.pick, it = { id: nextId++, type: "sym", product: k.product, size: k.size, variant: k.variant, color: k.color, arrow: k.arrow, rot: 0, flip: false, x: ui.view.cx, y: ui.view.cy,
     logo: !!k.logo, logoPos: k.logoPos, logoSize: k.logoSize };
+  if (EQ[k.product]) it.prm = JSON.parse(JSON.stringify((k.prms && k.prms[k.product]) || eqDefaults(k.product)));
   doc.items.push(it); snapSym(it); selectIds([it.id]); ui.tool = "select"; commit();
 }
 function finishPipe() {
@@ -721,8 +776,14 @@ cv.addEventListener("pointerdown", e => {
     doc.items.push(it); selectIds([it.id]); ui.tool = "select"; commit(); $("textVal").focus(); $("textVal").select();
     return;
   }
-  const h = e.target.closest("[data-h]"), g = e.target.closest("[data-id]");
+  const h = e.target.closest("[data-h]"), g = e.target.closest("[data-id]"), gr = e.target.closest("[data-g]");
   cv.setPointerCapture(e.pointerId);
+  if (gr && selected()) {
+    const it = selected(), gp = symOf(it).grips[+gr.dataset.g];
+    it.prm = it.prm || eqDefaults(it.product);
+    ui.drag = { kind: "grip", id: it.id, gp, start: w, v0: it.prm[gp.k] !== undefined ? it.prm[gp.k] : EQ[it.product].defaults[gp.k], anchor: symXform(it)([0, 0]), moved: false };
+    return;
+  }
   if (h && selected()) { ui.drag = { kind: "handle", id: ui.sel, i: +h.dataset.h, moved: false }; return; }
   if (g) {
     const id = +g.dataset.id, it = doc.items.find(i => i.id === id), ids = (e.altKey ? [it] : groupOf(it)).map(i => i.id);
@@ -749,6 +810,16 @@ cv.addEventListener("pointermove", e => {
   }
   if (d.kind === "pan") { ui.view.cx = d.cx - (e.clientX - d.sx) / ui.view.s; ui.view.cy = d.cy - (e.clientY - d.sy) / ui.view.s; d.moved = true; draw(); return; }
   if (d.kind === "box") { d.cur = w; d.moved = true; draw(); return; }
+  if (d.kind === "grip") {                                  // stretch equipment along the handle's direction; the origin stays put
+    const it = doc.items.find(i => i.id === d.id); if (!it) return;
+    const a = it.rot * Math.PI / 180, fl = it.flip ? -1 : 1, u = d.gp.u, wu = [u[0] * fl * Math.cos(a) - u[1] * Math.sin(a), u[0] * fl * Math.sin(a) + u[1] * Math.cos(a)];
+    const fd = EQ[it.product].fields.find(q => q.k === d.gp.k), st = lenStep();
+    let v = d.v0 + ((w[0] - d.start[0]) * wu[0] + (w[1] - d.start[1]) * wu[1]) * d.gp.f;
+    v = Math.max(fd.min, Math.min(fd.max, Math.round(v / st) * st));
+    it.prm = Object.assign({}, it.prm, { [d.gp.k]: Math.round(v * 100) / 100 });
+    const q = symXform(it)([0, 0]); it.x += d.anchor[0] - q[0]; it.y += d.anchor[1] - q[1];
+    d.moved = true; draw(); panel(); return;
+  }
   if (d.kind === "move" && d.ids.length > 1) {              // several items move together, on the grid or onto a connection
     const dx = w[0] - d.start[0], dy = w[1] - d.start[1], items = d.ids.map(i => doc.items.find(q => q.id === i)).filter(Boolean);
     items.forEach(it => shiftItem(it, JSON.parse(d.orig[it.id]), dx, dy));

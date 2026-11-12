@@ -14,6 +14,10 @@
   </header>
   <div class="cols">
     <aside class="panel" id="side">
+      <div class="group" id="gSel" hidden>
+        <h2 id="selTitle">Selection</h2>
+        <p class="hint" id="selHint"></p>
+      </div>
       <div class="group" id="gProduct">
         <h2 id="prodTitle">Add a product</h2>
         <div class="chips" id="families"></div>
@@ -45,6 +49,11 @@
           <label for="sch">Schedule</label><select id="sch"><option value="40">40</option><option value="80">80</option></select>
         </div>
         <div class="meta" id="pipeMeta"></div>
+        <div id="runNext">
+          <div class="row"><label for="runLen">Next run length</label><input type="text" id="runLen" inputmode="decimal" autocomplete="off" placeholder="e.g. 24 or 2'-6&quot;"></div>
+          <p class="hint">After the first click, aim with the mouse, type a length and press Enter. Bare numbers are inches. Enter on an empty box finishes.</p>
+        </div>
+        <div id="runs" class="stack" hidden></div>
         <div class="swatches" id="pipeColors"></div>
         <div class="row">
           <label class="check"><input type="checkbox" id="pipeLabel"> Size label</label>
@@ -79,6 +88,7 @@
           <label class="check"><input type="checkbox" id="blackLines"> Black linework</label>
         </div>
         <div class="row"><label>Lengths in</label><div class="chips" id="units"></div></div>
+        <div class="row" id="precRow"><label>Round to</label><div class="chips" id="prec"></div></div>
       </div>
     </aside>
 
@@ -94,6 +104,8 @@
         <button class="tool" id="bFlip" type="button">Mirror</button>
         <button class="tool" id="bDup" type="button">Duplicate</button>
         <button class="tool" id="bDel" type="button">Delete</button>
+        <button class="tool" id="bGroup" type="button" title="Ctrl+G">Group</button>
+        <button class="tool" id="bUngroup" type="button" title="Ctrl+Shift+G">Ungroup</button>
         <span class="sep"></span>
         <button class="tool" id="bUndo" type="button">Undo</button>
         <button class="tool" id="bRedo" type="button">Redo</button>
@@ -113,6 +125,9 @@
         <button class="btn" id="svgBtn" type="button">Download SVG</button>
         <label class="check"><input type="checkbox" id="whiteBg"> White background</label>
         <span class="sep" style="width:1px;align-self:stretch;background:var(--line)"></span>
+        <button class="btn" id="projBtn" type="button">Projects</button>
+        <span class="cur" id="curName"></span>
+        <span class="sep" style="width:1px;align-self:stretch;background:var(--line)"></span>
         <button class="btn" id="saveBtn" type="button">Save drawing file</button>
         <button class="btn" id="openBtn" type="button">Open drawing file</button>
         <input type="file" id="openFile" accept=".json,application/json" hidden>
@@ -122,6 +137,25 @@
     </main>
   </div>
 </div>
+<dialog id="projDlg" aria-labelledby="projDlgTitle">
+  <div class="dlg-head"><h2 id="projDlgTitle">Projects</h2><button class="btn" id="projClose" type="button">Close</button></div>
+  <div class="dlg-body">
+    <section>
+      <h3>Projects</h3>
+      <ul class="list" id="projList"></ul>
+      <div class="row"><input type="text" id="projName" placeholder="New project name" autocomplete="off"><button class="btn" id="projNew" type="button">New project</button></div>
+      <div class="row"><button class="btn" id="projImport" type="button">Import file</button><input type="file" id="projFile" accept=".json,application/json" hidden></div>
+    </section>
+    <section id="drwPane">
+      <h3 id="drwHead">Drawings</h3>
+      <ul class="list" id="drwList"></ul>
+      <div class="row"><input type="text" id="drwName" autocomplete="off"><button class="btn primary" id="drwSave" type="button">Save what's on screen here</button></div>
+      <div class="row"><button class="btn" id="drwNew" type="button">New blank drawing</button><button class="btn" id="projExport" type="button">Export project</button>
+        <button class="btn" id="projRename" type="button">Rename project</button><button class="btn" id="projDelete" type="button">Delete project</button></div>
+    </section>
+  </div>
+  <p class="hint">Projects live in this browser, on this computer. The open drawing saves to its project as you work. Export a project to back it up or move it to another computer, then Import it there.</p>
+</dialog>
 <script src="app/loader.js"></script>
 </body>
 </html>

@@ -56,30 +56,47 @@ const PRESETS = [["Blue", "#3f86dc"], ["Navy", "#1f3f73"], ["Steel grey", "#8d99
                  ["Orange", "#e58a2b"], ["Yellow", "#e9c53c"], ["Green", "#3f9a5f"], ["White", "#f2f4f7"]];
 const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
-const BUILD = "7";
+const BUILD = "8";
 const LOGO = window.SDG_LOGO || null;                       // vector Spirax Sarco logo, app/logo.js
-const STYLE0 = { shade: true, blackLines: false, units: "ftin" };
+const STYLE0 = { shade: true, blackLines: false, units: "ftin", prec: 1 };
 const UNITS = [["ftin", "ft-in"], ["in", "in"], ["mm", "mm"]];
+const PRECS = [[1, '1"'], [0.5, '1/2"'], [0.0625, '1/16"']];     // what ft-in and in lengths round to
 const LOGO_POS = [["center", "On body"], ["above", "Above"], ["below", "Below"]];
 const LOGO_SIZE = { S: 0.3, M: 0.45, L: 0.65 };             // logo width as a share of the product's width
 
 let doc = { v: 1, style: Object.assign({}, STYLE0), items: [] };
-const ui = { tool: "select", sel: null, draft: null, cursor: null, view: { cx: 0, cy: 0, s: 1.6 },
+const ui = { tool: "select", sel: null, set: [], draft: null, cursor: null, view: { cx: 0, cy: 0, s: 1.6 },
   pick: { family: "Steam traps", product: "TD52", size: '3/4"', variant: "NPT", color: "#3f86dc", arrow: true, logo: false, logoPos: "center", logoSize: "M" },
   pipe: { nps: '3/4"', sch: 80, color: "#8d99a8", label: true, cut: false, len: false },
   text: { text: "", size: 14, color: "#13233b" }, arrow: { color: "#13233b" }, dim: { mode: "aligned", color: "#13233b", size: 0 } };
 
 // ---------------------------------------------------------------- lengths and dimensions
-// Lengths read to the nearest 1/16" (ft-in, in) or 1 mm.
-function fmtLen(mm, units) {
+// Lengths read to the drawing's rounding (1", 1/2" or 1/16"), or to 1 mm.
+function fmtLen(mm, units, prec) {
   units = units || doc.style.units;
   if (units === "mm") return `${Math.round(mm)} mm`;
-  const n16 = Math.round(Math.abs(mm) / 25.4 * 16), ft = units === "ftin" ? Math.floor(n16 / 192) : 0, r = n16 - ft * 192;
-  const whole = Math.floor(r / 16); let num = r % 16, den = 16;
+  const per = Math.max(1, Math.round(1 / (prec || doc.style.prec || 1)));            // steps per inch
+  const n = Math.round(Math.abs(mm) / 25.4 * per), ft = units === "ftin" ? Math.floor(n / (12 * per)) : 0, r = n - ft * 12 * per;
+  const whole = Math.floor(r / per); let num = r % per, den = per;
   while (num && num % 2 === 0) { num /= 2; den /= 2; }
   const lead = whole || !num || ft;                        // 4'-0 5/8", but 5/8" on its own
   const inch = (lead ? String(whole) : "") + (num ? `${lead ? " " : ""}${num}/${den}` : "");
   return ft ? `${ft}'-${inch}"` : `${inch}"`;
+}
+// Typed lengths: 24, 24", 2'-6", 2' 6 1/2, 30 1/2, 30.5, 2ft, 600mm, 1.2m. Bare numbers are inches (mm when the drawing is in mm).
+function parseLen(str) {
+  let t = String(str || "").trim().toLowerCase().replace(/inches|inch|in\b/g, '"').replace(/feet|foot|ft\b/g, "'").replace(/\s+/g, " ");
+  if (!t) return null;
+  const num = v => { v = v.trim().replace(/"$/, "").trim(); if (!v) return 0;
+    const m = v.match(/^(\d+(?:\.\d+)?)?(?:[ -]?(\d+)\/(\d+))?$/); if (!m || (!m[1] && !m[2])) return NaN;
+    return (m[1] ? +m[1] : 0) + (m[2] ? m[2] / m[3] : 0); };
+  let mm;
+  if (/mm$/.test(t)) mm = +t.slice(0, -2);
+  else if (/[0-9.]m$/.test(t)) mm = +t.slice(0, -1) * 1000;
+  else if (t.includes("'")) { const [f, r] = t.split("'"); mm = (+f * 12 + num(r.replace(/^[ -]+/, ""))) * 25.4; }
+  else if (t.includes('"') || doc.style.units !== "mm") mm = num(t) * 25.4;
+  else mm = num(t);
+  return isFinite(mm) && mm > 0 ? Math.round(mm * 100) / 100 : null;
 }
 // A dimension: points a and b, the measuring mode (aligned, h, v) and the signed offset of the dimension line.
 function dimGeom(it) {
@@ -298,10 +315,10 @@ function zoom(f, at) {
 }
 
 // ---------------------------------------------------------------- snapping
-function snapTargets(skipId) {
-  const t = [];
+function snapTargets(skip) {
+  const t = [], skipped = id => skip instanceof Set ? skip.has(id) : id === skip;
   for (const it of doc.items) {
-    if (it.id === skipId || !valid(it)) continue;
+    if (skipped(it.id) || !valid(it)) continue;
     if (it.type === "sym") {
       const T = symXform(it);
       for (const p of symOf(it).ports) { const w = T(p); if (p.length > 2) w.push(it.rot + (it.flip ? 180 - p[2] : p[2])); t.push(w); }
@@ -311,6 +328,8 @@ function snapTargets(skipId) {
   return t;
 }
 const gridSnap = v => Math.round(v / GRID) * GRID;
+// Pipe runs drawn with the mouse step in whole inches (or half inches) so they read cleanly; 5 mm in mm or at 1/16".
+const lenStep = () => doc.style.units === "mm" || doc.style.prec < 0.2 ? GRID : doc.style.prec * 25.4;
 // Returns [x, y, snappedToAConnection, directionOfThatConnection].
 // Runs lock to 45 degree steps from the last point; extraDir adds one more allowed direction (a strainer leg).
 function snapPoint(p, prev, skipId, free, extraDir) {
@@ -325,7 +344,7 @@ function snapPoint(p, prev, skipId, free, extraDir) {
     if (extraDir != null && Math.abs(((ang - extraDir + 540) % 360) - 180) < 14) a = extraDir;
     const r = a * Math.PI / 180;
     u = [Math.abs(Math.cos(r)) < 1e-9 ? 0 : Math.cos(r), Math.abs(Math.sin(r)) < 1e-9 ? 0 : Math.sin(r)];
-    const len = Math.max(0, gridSnap(dx * u[0] + dy * u[1]));
+    const st = lenStep(), len = Math.max(0, Math.round((dx * u[0] + dy * u[1]) / st) * st);
     c = [Math.round((prev[0] + u[0] * len) * 100) / 100, Math.round((prev[1] + u[1] * len) * 100) / 100];
   }
   // land on the centreline of another pipe to make a tee
@@ -376,8 +395,17 @@ function draw() {
     `<rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="#ffffff"/><rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="url(#gm)"/><rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="url(#gM)"/>`;
   o += renderAll();
   // connection points while routing pipe or moving things
-  if (ui.tool === "pipe" || ui.tool === "dim" || ui.drag) for (const t of snapTargets(ui.drag && ui.drag.id)) o += `<circle cx="${t[0]}" cy="${t[1]}" r="${4 * px}" fill="#fff" stroke="#1f5fae" stroke-width="${1.5 * px}" pointer-events="none"/>`;
-  const sel = selected();
+  if (ui.tool === "pipe" || ui.tool === "dim" || ui.drag) for (const t of snapTargets(ui.drag && ui.drag.ids ? new Set(ui.drag.ids) : ui.drag && ui.drag.id)) o += `<circle cx="${t[0]}" cy="${t[1]}" r="${4 * px}" fill="#fff" stroke="#1f5fae" stroke-width="${1.5 * px}" pointer-events="none"/>`;
+  const sel = selected(), many = selItems();
+  if (many.length > 1) {
+    const B = many.map(bboxOf), b = [Math.min(...B.map(q => q[0])), Math.min(...B.map(q => q[1])), Math.max(...B.map(q => q[2])), Math.max(...B.map(q => q[3]))], m = 6 * px;
+    for (const q of B) o += `<rect x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}" fill="none" stroke="#1f5fae" stroke-opacity="0.35" stroke-width="${px}" pointer-events="none"/>`;
+    o += `<rect x="${b[0] - m}" y="${b[1] - m}" width="${b[2] - b[0] + 2 * m}" height="${b[3] - b[1] + 2 * m}" fill="none" stroke="#1f5fae" stroke-width="${1.5 * px}" stroke-dasharray="${5 * px} ${4 * px}" pointer-events="none"/>`;
+  }
+  if (ui.drag && ui.drag.kind === "box" && ui.drag.cur) {
+    const a = ui.drag.start, c = ui.drag.cur;
+    o += `<rect x="${Math.min(a[0], c[0])}" y="${Math.min(a[1], c[1])}" width="${Math.abs(c[0] - a[0])}" height="${Math.abs(c[1] - a[1])}" fill="#1f5fae" fill-opacity="0.06" stroke="#1f5fae" stroke-width="${px}" stroke-dasharray="${4 * px} ${3 * px}" pointer-events="none"/>`;
+  }
   if (sel && valid(sel)) {
     const b = bboxOf(sel), m = 4 * px;
     o += `<rect x="${b[0] - m}" y="${b[1] - m}" width="${b[2] - b[0] + 2 * m}" height="${b[3] - b[1] + 2 * m}" fill="none" stroke="#1f5fae" stroke-width="${1.5 * px}" stroke-dasharray="${5 * px} ${4 * px}" pointer-events="none"/>`;
@@ -405,8 +433,9 @@ function draw() {
   bar.querySelector("i").style.width = (inches * 25.4 * v.s).toFixed(1) + "px";
   bar.querySelector("span").textContent = inches >= 12 ? `${inches / 12} ft` : `${inches} in`;
   $("board").className = "board t-" + ui.tool;
-  $("tip").textContent = { select: sel ? "Drag to move. Delete removes it." : "Click an item to select it. Drag the sheet to pan, scroll to zoom.",
-    pipe: ui.draft ? "Runs lock to 45° steps (hold Alt for any angle). Double-click or Enter to finish, Esc to cancel." : "Click to start a pipe. It snaps to product connections (blue dots).",
+  $("tip").textContent = { select: many.length > 1 ? `${many.length} items. Drag to move them together. Ctrl+G groups, Ctrl+Shift+G ungroups.` :
+      sel ? "Drag to move. Delete removes it. Shift+click adds to the selection." : "Click an item to select it. Shift+drag a box to select several. Drag the sheet to pan, scroll to zoom.",
+    pipe: ui.draft ? "Aim with the mouse and type a length, then Enter. Or click. Double-click or Enter on an empty box finishes, Esc cancels." : "Click to start a pipe. It snaps to product connections (blue dots).",
     text: "Click where the label goes.", arrow: ui.draft ? "Click where the arrow points." : "Click where the arrow starts.",
     dim: !ui.draft ? "Click the first point. It snaps to connections and pipe ends and turns." : ui.draft.pts.length === 1 ? "Click the second point." :
       "Move to place the dimension line, then click. Esc cancels." }[ui.tool];
@@ -420,22 +449,28 @@ function dimDraft(cur) {
   return it;
 }
 const selected = () => doc.items.find(i => i.id === ui.sel) || null;
+// Selection: ui.set holds every selected id; ui.sel is that id when exactly one item is selected (the panel edits it).
+function selectIds(ids) { ui.set = [...new Set(ids)]; ui.sel = ui.set.length === 1 ? ui.set[0] : null; }
+const selItems = () => ui.set.map(id => doc.items.find(i => i.id === id)).filter(Boolean);
+const groupOf = it => it.grp ? doc.items.filter(i => i.grp === it.grp) : [it];
+const nextGrp = () => 1 + Math.max(0, ...doc.items.map(i => i.grp || 0));
 
 // ---------------------------------------------------------------- history and storage
 function commit() {
   const j = JSON.stringify(doc);
   if (j !== hist[hi]) { hist = hist.slice(0, hi + 1); hist.push(j); hi++; if (hist.length > 80) { hist.shift(); hi--; } }
   try { localStorage.setItem("sdg-doc", j); } catch (e) {}
+  projAutosave(j);
   refresh();
 }
 function loadDoc(d) {
   if (!d || !Array.isArray(d.items)) throw new Error("bad file");
   doc = { v: 1, style: Object.assign({}, STYLE0, d.style || {}), items: d.items.filter(i => i && ["sym", "pipe", "text", "arrow", "dim"].includes(i.type) && (i.type !== "pipe" || PIPE[i.nps])) };
   doc.items.forEach(i => { i.id = nextId++; });
-  ui.sel = null; ui.draft = null;
+  selectIds([]); ui.draft = null;
 }
 function step(n) { if (hist[hi + n] === undefined) return; hi += n; const keep = ui.view; loadDoc(JSON.parse(hist[hi])); ui.view = keep; try { localStorage.setItem("sdg-doc", hist[hi]); } catch (e) {} refresh(); }
-function refresh() { draw(); panel(); }
+function refresh() { draw(); panel(); projLabel(); }
 
 // ---------------------------------------------------------------- side panel
 function chipRow(el, items, current, onPick, label) {
@@ -457,9 +492,18 @@ function panel() {
   $("gText").hidden = !(kind === "text" || (!sel && ui.tool === "text"));
   $("gArrow").hidden = !(kind === "arrow" || (!sel && ui.tool === "arrow"));
   $("gDim").hidden = !(kind === "dim" || (!sel && ui.tool === "dim"));
+  const many = selItems(), grouped = many.length > 1 && many.every(i => i.grp && i.grp === many[0].grp);
+  $("gSel").hidden = many.length < 2;
+  if (many.length > 1) {
+    $("gProduct").hidden = true;
+    $("selTitle").textContent = grouped ? `Group of ${many.length}` : `${many.length} items selected`;
+    $("selHint").textContent = grouped ? "Moves, copies, rotates and deletes as one. Alt+click an item in the group to edit just that item." :
+      "Drag any of them to move them together. Group them to keep them together.";
+  }
+  $("bGroup").disabled = many.length < 2 || grouped; $("bUngroup").disabled = !many.some(i => i.grp);
   ["Select", "Pipe", "Text", "Arrow", "Dim"].forEach(t => $("t" + t).setAttribute("aria-pressed", ui.tool === t.toLowerCase()));
-  $("bRot").disabled = !(kind === "sym" || kind === "pipe"); $("bFlip").disabled = kind !== "sym";
-  $("bRot").textContent = kind === "pipe" ? "Rotate 45°" : "Rotate"; $("bDup").disabled = $("bDel").disabled = !sel;
+  $("bRot").disabled = !(kind === "sym" || kind === "pipe" || many.length > 1); $("bFlip").disabled = kind !== "sym";
+  $("bRot").textContent = kind === "pipe" ? "Rotate 45°" : "Rotate"; $("bDup").disabled = $("bDel").disabled = !many.length;
   $("bUndo").disabled = hi <= 0; $("bRedo").disabled = hi >= hist.length - 1;
   $("shade").checked = doc.style.shade; $("blackLines").checked = doc.style.blackLines;
 
@@ -520,6 +564,23 @@ function panel() {
   $("pipeLabel").onchange = e => pset("label", e.target.checked); $("pipeCut").onchange = e => pset("cut", e.target.checked);
   $("pipeLen").checked = !!pt.len; $("pipeLen").onchange = e => pset("len", e.target.checked);
   swatches($("pipeColors"), pt.color, v => pset("color", v));
+  // lengths: type the next run while drawing, or edit any run of the selected pipe
+  $("runNext").hidden = pe || ui.tool !== "pipe";
+  const runs = $("runs"); runs.hidden = !pe;
+  if (pe && !runs.contains(document.activeElement)) {
+    runs.innerHTML = `<div class="row"><label>Run lengths (centreline, point to point)</label></div>`;
+    const ARR = ["→", "↘", "↓", "↙", "←", "↖", "↑", "↗"];
+    sel.pts.slice(1).forEach((q, i) => {
+      const a = sel.pts[i], L = Math.hypot(q[0] - a[0], q[1] - a[1]), ang = Math.atan2(q[1] - a[1], q[0] - a[0]) * 180 / Math.PI;
+      const r = document.createElement("div"); r.className = "row run";
+      r.innerHTML = `<label for="run${i}">${i + 1}. ${ARR[(Math.round(ang / 45) + 8) % 8]}</label><input id="run${i}" type="text" inputmode="decimal" autocomplete="off">` +
+        `<span class="meta">${esc(fmtLen(L, doc.style.units === "mm" ? "ftin" : "mm"))}</span>`;
+      const inp = r.querySelector("input"); inp.value = fmtLen(L);
+      inp.addEventListener("change", () => { const v = parseLen(inp.value); if (v) setRunLength(sel, i, v); else { say(`"${inp.value}" isn't a length I can read. Try 24, 2'-6" or 600mm.`, "warn"); panel(); } });
+      inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); });
+      runs.appendChild(r);
+    });
+  }
   const [od, w40, w80] = PIPE[pt.nps], wall = pt.sch === 80 ? w80 : w40;
   $("pipeMeta").textContent = `OD ${(od / 25.4).toFixed(3)}", wall ${(wall / 25.4).toFixed(3)}", ID ${((od - 2 * wall) / 25.4).toFixed(3)}"`;
 
@@ -546,27 +607,70 @@ function panel() {
   swatches($("dimColors"), dt.color, v => dset("color", v));
   $("dimMeta").textContent = de ? `Measures ${fmtLen(dimGeom(sel).L, "ftin")} · ${fmtLen(dimGeom(sel).L, "mm")}` : "";
   chipRow($("units"), UNITS.map(u => u[0]), doc.style.units, v => { doc.style.units = v; commit(); }, v => UNITS.find(u => u[0] === v)[1]);
+  $("precRow").hidden = doc.style.units === "mm";
+  chipRow($("prec"), PRECS.map(p => p[0]), doc.style.prec, v => { doc.style.prec = v; commit(); }, v => PRECS.find(p => p[0] === v)[1]);
 }
 
 // ---------------------------------------------------------------- actions
-function setTool(t) { ui.tool = t; ui.draft = null; ui.cursor = null; if (t !== "select") ui.sel = null; refresh(); }
+function setTool(t) { ui.tool = t; ui.draft = null; ui.cursor = null; if (t !== "select") selectIds([]); refresh(); }
 function addProduct() {
   const k = ui.pick, it = { id: nextId++, type: "sym", product: k.product, size: k.size, variant: k.variant, color: k.color, arrow: k.arrow, rot: 0, flip: false, x: ui.view.cx, y: ui.view.cy,
     logo: !!k.logo, logoPos: k.logoPos, logoSize: k.logoSize };
-  doc.items.push(it); snapSym(it); ui.sel = it.id; ui.tool = "select"; commit();
+  doc.items.push(it); snapSym(it); selectIds([it.id]); ui.tool = "select"; commit();
 }
 function finishPipe() {
   const d = ui.draft; ui.draft = null; ui.cursor = null;
   if (d && d.pts.length > 1) { const it = Object.assign({ id: nextId++, type: "pipe", pts: d.pts }, ui.pipe); doc.items.push(it); commit(); } else refresh();
 }
-function del() { if (!ui.sel) return; doc.items = doc.items.filter(i => i.id !== ui.sel); ui.sel = null; commit(); }
+function del() { if (!ui.set.length) return; const k = new Set(ui.set); doc.items = doc.items.filter(i => !k.has(i.id)); selectIds([]); commit(); }
+// move an item by (dx, dy) from its saved copy o
+function shiftItem(it, o, dx, dy) {
+  if (it.type === "pipe") it.pts = o.pts.map(p => [p[0] + dx, p[1] + dy]);
+  else if (it.type === "arrow" || it.type === "dim") { it.a = [o.a[0] + dx, o.a[1] + dy]; it.b = [o.b[0] + dx, o.b[1] + dy]; }
+  else { it.x = o.x + dx; it.y = o.y + dy; }
+}
 function dup() {
-  const s = selected(); if (!s) return;
-  const c = JSON.parse(JSON.stringify(s)); c.id = nextId++;
-  if (c.type === "pipe") c.pts = c.pts.map(p => [p[0] + 20, p[1] + 20]); else if (c.type === "arrow" || c.type === "dim") { c.a = [c.a[0] + 20, c.a[1] + 20]; c.b = [c.b[0] + 20, c.b[1] + 20]; } else { c.x += 20; c.y += 20; }
-  doc.items.push(c); ui.sel = c.id; commit();
+  const src = selItems(); if (!src.length) return;
+  const g = new Map(), out = [];
+  for (const s of src) {
+    const c = JSON.parse(JSON.stringify(s)); c.id = nextId++;
+    if (c.grp) { if (!g.has(c.grp)) g.set(c.grp, nextGrp() + g.size); c.grp = g.get(c.grp); }
+    shiftItem(c, s, 20, 20); doc.items.push(c); out.push(c.id);
+  }
+  selectIds(out); commit();
+}
+function group() { const m = selItems(); if (m.length < 2) return; const g = nextGrp(); m.forEach(i => { i.grp = g; }); commit(); say(`Grouped ${m.length} items.`, "ok"); }
+function ungroup() { const m = selItems(); if (!m.some(i => i.grp)) return; m.forEach(i => { delete i.grp; }); commit(); say("Ungrouped.", "ok"); }
+// several items: turn 90 degrees clockwise about the middle of the selection
+function rotateSet(m) {
+  const B = m.map(bboxOf), cx = gridSnap((Math.min(...B.map(q => q[0])) + Math.max(...B.map(q => q[2]))) / 2), cy = gridSnap((Math.min(...B.map(q => q[1])) + Math.max(...B.map(q => q[3]))) / 2);
+  const R = p => [Math.round((cx - (p[1] - cy)) * 100) / 100, Math.round((cy + (p[0] - cx)) * 100) / 100];
+  for (const it of m) {
+    if (it.type === "pipe") it.pts = it.pts.map(R);
+    else if (it.type === "arrow" || it.type === "dim") { it.a = R(it.a); it.b = R(it.b); if (it.type === "dim" && it.mode !== "aligned") it.mode = it.mode === "h" ? "v" : "h"; }
+    else { [it.x, it.y] = R([it.x, it.y]); if (it.type === "sym") it.rot = (it.rot + 90) % 360; }
+  }
+  commit();
+}
+// change one run of a pipe to length L; the points after it move along with it
+function setRunLength(it, i, L) {
+  const a = it.pts[i], b = it.pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (!l) return;
+  const dx = (b[0] - a[0]) / l * (L - l), dy = (b[1] - a[1]) / l * (L - l);
+  it.pts = it.pts.map((p, j) => j > i ? [Math.round((p[0] + dx) * 100) / 100, Math.round((p[1] + dy) * 100) / 100] : p);
+  commit();
+}
+// while drawing a pipe: add a run of length L toward the mouse (or straight on)
+function typedRun(L) {
+  const d = ui.draft; if (!d) { say("Click where the pipe starts first, then type the length.", "warn"); return; }
+  const a = d.pts[d.pts.length - 1];
+  let u = ui.cursor && Math.hypot(ui.cursor[0] - a[0], ui.cursor[1] - a[1]) > 0.5 ? [ui.cursor[0] - a[0], ui.cursor[1] - a[1]] :
+    d.pts.length > 1 ? [a[0] - d.pts[d.pts.length - 2][0], a[1] - d.pts[d.pts.length - 2][1]] : [1, 0];
+  const l = Math.hypot(u[0], u[1]); u = [u[0] / l, u[1] / l];
+  const p = [Math.round((a[0] + u[0] * L) * 100) / 100, Math.round((a[1] + u[1] * L) * 100) / 100];
+  d.pts.push(p); ui.cursor = [p[0] + u[0] * 0.001, p[1] + u[1] * 0.001]; draw();
 }
 function rotate() {
+  const m = selItems(); if (m.length > 1) { rotateSet(m); return; }
   const s = selected(); if (!s) return;
   if (s.type === "sym") { s.rot = (s.rot + 90) % 360; commit(); }
   else if (s.type === "pipe") {                           // 45 degrees about the first point
@@ -597,7 +701,7 @@ cv.addEventListener("pointerdown", e => {
   if (ui.tool === "arrow") {
     const p = [Math.round(w[0]), Math.round(w[1])];
     if (!ui.draft) { ui.draft = { pts: [p] }; draw(); }
-    else { const it = { id: nextId++, type: "arrow", a: ui.draft.pts[0], b: p, color: ui.arrow.color, w: 1.6 }; ui.draft = null; doc.items.push(it); ui.sel = it.id; ui.tool = "select"; commit(); }
+    else { const it = { id: nextId++, type: "arrow", a: ui.draft.pts[0], b: p, color: ui.arrow.color, w: 1.6 }; ui.draft = null; doc.items.push(it); selectIds([it.id]); ui.tool = "select"; commit(); }
     return;
   }
   if (ui.tool === "dim") {
@@ -608,24 +712,32 @@ cv.addEventListener("pointerdown", e => {
       draw();
     } else {
       const it = dimDraft(w); it.id = nextId++; ui.draft = null; ui.cursor = null;
-      doc.items.push(it); ui.sel = it.id; commit();
+      doc.items.push(it); selectIds([it.id]); commit();
     }
     return;
   }
   if (ui.tool === "text") {
     const it = { id: nextId++, type: "text", x: gridSnap(w[0]), y: gridSnap(w[1]), text: ui.text.text || "Label", size: ui.text.size, color: ui.text.color };
-    doc.items.push(it); ui.sel = it.id; ui.tool = "select"; commit(); $("textVal").focus(); $("textVal").select();
+    doc.items.push(it); selectIds([it.id]); ui.tool = "select"; commit(); $("textVal").focus(); $("textVal").select();
     return;
   }
   const h = e.target.closest("[data-h]"), g = e.target.closest("[data-id]");
   cv.setPointerCapture(e.pointerId);
   if (h && selected()) { ui.drag = { kind: "handle", id: ui.sel, i: +h.dataset.h, moved: false }; return; }
   if (g) {
-    const id = +g.dataset.id, it = doc.items.find(i => i.id === id);
-    ui.sel = id; ui.drag = { kind: "move", id, start: w, orig: JSON.stringify(it), moved: false }; refresh();
+    const id = +g.dataset.id, it = doc.items.find(i => i.id === id), ids = (e.altKey ? [it] : groupOf(it)).map(i => i.id);
+    if (e.shiftKey) {                                     // add to the selection, or take back out
+      const on = ids.every(i => ui.set.includes(i));
+      selectIds(on ? ui.set.filter(i => !ids.includes(i)) : [...ui.set, ...ids]);
+    } else if (!(ui.set.length > 1 && ui.set.includes(id))) selectIds(ids);
+    const move = selItems();
+    if (move.length) ui.drag = { kind: "move", id: move.length === 1 ? move[0].id : null, ids: move.map(i => i.id), start: w,
+      orig: Object.fromEntries(move.map(i => [i.id, JSON.stringify(i)])), moved: false };
+    refresh();
     return;
   }
-  ui.sel = null; ui.drag = { kind: "pan", sx: e.clientX, sy: e.clientY, cx: ui.view.cx, cy: ui.view.cy, moved: false }; refresh();
+  if (e.shiftKey) { ui.drag = { kind: "box", start: w, cur: null, base: [...ui.set], moved: false }; return; }
+  selectIds([]); ui.drag = { kind: "pan", sx: e.clientX, sy: e.clientY, cx: ui.view.cx, cy: ui.view.cy, moved: false }; refresh();
 });
 cv.addEventListener("pointermove", e => {
   const w = toWorld(e), d = ui.drag;
@@ -636,6 +748,18 @@ cv.addEventListener("pointermove", e => {
     return;
   }
   if (d.kind === "pan") { ui.view.cx = d.cx - (e.clientX - d.sx) / ui.view.s; ui.view.cy = d.cy - (e.clientY - d.sy) / ui.view.s; d.moved = true; draw(); return; }
+  if (d.kind === "box") { d.cur = w; d.moved = true; draw(); return; }
+  if (d.kind === "move" && d.ids.length > 1) {              // several items move together, on the grid or onto a connection
+    const dx = w[0] - d.start[0], dy = w[1] - d.start[1], items = d.ids.map(i => doc.items.find(q => q.id === i)).filter(Boolean);
+    items.forEach(it => shiftItem(it, JSON.parse(d.orig[it.id]), dx, dy));
+    const tol = 11 / ui.view.s, targets = snapTargets(new Set(d.ids)), mine = [];
+    for (const it of items) { if (it.type === "sym") mine.push(...portsOf(it)); if (it.type === "pipe") mine.push(it.pts[0], it.pts[it.pts.length - 1]); }
+    let best = null, bd = tol;
+    for (const p of mine) for (const t of targets) { const q = Math.hypot(t[0] - p[0], t[1] - p[1]); if (q < bd) { bd = q; best = [t[0] - p[0], t[1] - p[1]]; } }
+    const sx = best ? dx + best[0] : gridSnap(dx), sy = best ? dy + best[1] : gridSnap(dy);
+    items.forEach(it => shiftItem(it, JSON.parse(d.orig[it.id]), sx, sy));
+    d.moved = true; draw(); return;
+  }
   const it = doc.items.find(i => i.id === d.id); if (!it) return;
   d.moved = true;
   if (d.kind === "handle") {
@@ -645,7 +769,7 @@ cv.addEventListener("pointermove", e => {
       else { const g = dimGeom(it); it.off = Math.round(((w[0] - it.a[0]) * g.n[0] + (w[1] - it.a[1]) * g.n[1]) * 100) / 100; }
     } else it[d.i ? "b" : "a"] = [Math.round(w[0]), Math.round(w[1])];
   } else {
-    const o = JSON.parse(d.orig), dx = w[0] - d.start[0], dy = w[1] - d.start[1];
+    const o = JSON.parse(d.orig[it.id]), dx = w[0] - d.start[0], dy = w[1] - d.start[1];
     if (it.type === "pipe") { const sx = gridSnap(dx), sy = gridSnap(dy); it.pts = o.pts.map(p => [p[0] + sx, p[1] + sy]); }
     else if (it.type === "arrow") { it.a = [o.a[0] + dx, o.a[1] + dy]; it.b = [o.b[0] + dx, o.b[1] + dy]; }
     else if (it.type === "dim") { const sx = gridSnap(dx), sy = gridSnap(dy); it.a = [o.a[0] + sx, o.a[1] + sy]; it.b = [o.b[0] + sx, o.b[1] + sy]; }
@@ -653,7 +777,18 @@ cv.addEventListener("pointermove", e => {
   }
   draw();
 });
-function endDrag() { const d = ui.drag; ui.drag = null; if (d && d.moved && d.kind !== "pan") commit(); else draw(); }
+function endDrag() {
+  const d = ui.drag; ui.drag = null;
+  if (d && d.kind === "box") {
+    if (d.cur) {
+      const x0 = Math.min(d.start[0], d.cur[0]), x1 = Math.max(d.start[0], d.cur[0]), y0 = Math.min(d.start[1], d.cur[1]), y1 = Math.max(d.start[1], d.cur[1]);
+      const hit = doc.items.filter(valid).filter(i => { const b = bboxOf(i); return b[0] >= x0 && b[2] <= x1 && b[1] >= y0 && b[3] <= y1; });
+      selectIds([...d.base, ...hit.flatMap(i => groupOf(i).map(q => q.id))]);
+    }
+    refresh(); return;
+  }
+  if (d && d.moved && d.kind !== "pan") commit(); else draw();
+}
 cv.addEventListener("pointerup", endDrag); cv.addEventListener("pointercancel", endDrag);
 cv.addEventListener("dblclick", e => {
   const g = e.target.closest("[data-id]"); if (ui.tool === "select" && g && selected() && selected().type === "text") { $("textVal").focus(); $("textVal").select(); } });
@@ -663,7 +798,10 @@ window.addEventListener("keydown", e => {
   const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
   if (k === "escape") { if (ui.draft) { ui.draft = null; ui.cursor = null; draw(); } else setTool("select"); }
   else if (k === "enter" && ui.tool === "pipe") finishPipe();
-  else if ((k === "delete" || k === "backspace") && ui.sel) { e.preventDefault(); del(); }
+  else if ((k === "delete" || k === "backspace") && ui.set.length) { e.preventDefault(); del(); }
+  else if (mod && k === "g") { e.preventDefault(); if (e.shiftKey) ungroup(); else group(); }
+  else if (mod && k === "a") { e.preventDefault(); setTool("select"); selectIds(doc.items.filter(valid).map(i => i.id)); refresh(); }
+  else if (ui.tool === "pipe" && ui.draft && !mod && /^[0-9.]$/.test(e.key)) { e.preventDefault(); const r = $("runLen"); r.focus(); r.value += e.key; }
   else if (mod && k === "z") { e.preventDefault(); step(e.shiftKey ? 1 : -1); }
   else if (mod && k === "y") { e.preventDefault(); step(1); }
   else if (mod && k === "d") { e.preventDefault(); dup(); }
@@ -714,18 +852,143 @@ $("openBtn").addEventListener("click", () => $("openFile").click());
 $("openFile").addEventListener("change", e => {
   const f = e.target.files[0]; if (!f) return;
   const r = new FileReader();
-  r.onload = () => { try { loadDoc(JSON.parse(r.result)); fit(); commit(); say(`Opened ${f.name}`, "ok"); } catch (err) { say("That file isn't a drawing saved from this page.", "warn"); } };
+  r.onload = () => { try { const d = JSON.parse(r.result); if (d && d.sdgProject) { importProject(d, f.name); return; } loadDoc(d); proj.cur = {}; projSave(); fit(); commit(); say(`Opened ${f.name}`, "ok"); } catch (err) { say("That file isn't a drawing saved from this page.", "warn"); } };
   r.readAsText(f); e.target.value = "";
 });
 let clearArmed = 0;
 $("clearBtn").addEventListener("click", () => {
-  if (Date.now() - clearArmed < 4000) { doc.items = []; ui.sel = null; clearArmed = 0; $("clearBtn").textContent = "Clear"; commit(); say("Cleared. Undo brings it back."); }
+  if (Date.now() - clearArmed < 4000) { doc.items = []; selectIds([]); clearArmed = 0; $("clearBtn").textContent = "Clear"; commit(); say("Cleared. Undo brings it back."); }
   else { clearArmed = Date.now(); $("clearBtn").textContent = "Click again to clear"; setTimeout(() => { $("clearBtn").textContent = "Clear"; }, 4000); }
+});
+
+// ---------------------------------------------------------------- projects
+// Drawings saved by name into projects, kept in this browser's storage. The open drawing saves itself as you work.
+// Export writes a project to one .json file (a backup, or a way to move it to another computer); Open or Import reads it back.
+const PKEY = "sdg-projects";
+const proj = (() => { try { const p = JSON.parse(localStorage.getItem(PKEY)); if (p && Array.isArray(p.projects)) return Object.assign({ cur: {} }, p); } catch (e) {} return { v: 1, projects: [], cur: {} }; })();
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const projOf = id => proj.projects.find(p => p.id === id);
+function curDrawing() { const p = projOf(proj.cur.p), d = p && p.drawings.find(q => q.id === proj.cur.d); return d ? { p, d } : null; }
+function projSave() {
+  try { localStorage.setItem(PKEY, JSON.stringify(proj)); return true; }
+  catch (e) { say("Browser storage is full. Export a project and delete it here to make room.", "warn"); return false; }
+}
+function projAutosave(j) {
+  const c = curDrawing(); if (!c) return;
+  c.d.doc = JSON.parse(j); c.d.updated = Date.now();
+  clearTimeout(projAutosave.t); projAutosave.t = setTimeout(projSave, 300);
+}
+function projLabel() {
+  const c = curDrawing(), el = $("curName");
+  if (el) el.innerHTML = c ? `<b>${esc(c.p.name)}</b> › ${esc(c.d.name)}` : "Not saved to a project";
+}
+const when = t => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+function freeName(list, base) { let n = base, k = 2; while (list.some(x => x.name === n)) n = `${base} (${k++})`; return n; }
+function openDrawing(p, d) {
+  loadDoc(d.doc || { items: [] }); proj.cur = { p: p.id, d: d.id }; projSave();
+  hist = []; hi = -1; fit(); commit(); requestAnimationFrame(() => { fit(); draw(); });
+  say(`Opened ${d.name}`, "ok");
+}
+function importProject(data, fname) {
+  const name = freeName(proj.projects, data.name || fname.replace(/\.json$/i, "").replace(/\.sdgproj$/i, "") || "Imported project");
+  const p = { id: uid(), name, drawings: (data.drawings || []).filter(d => d && d.doc && Array.isArray(d.doc.items))
+    .map(d => ({ id: uid(), name: d.name || "Drawing", updated: d.updated || Date.now(), doc: d.doc })) };
+  proj.projects.push(p); ui.projSel = p.id; projSave(); projDialog();
+  say(`Imported project ${name} (${p.drawings.length} drawings).`, "ok");
+}
+function projDialog() {
+  const dlg = $("projDlg");
+  if (!projOf(ui.projSel)) ui.projSel = (projOf(proj.cur.p) || proj.projects[0] || {}).id;
+  const P = projOf(ui.projSel), pl = $("projList"), dl = $("drwList");
+  pl.innerHTML = proj.projects.length ? "" : `<li class="empty">No projects yet. Name one below.</li>`;
+  proj.projects.forEach(p => {
+    const li = document.createElement("li"), b = document.createElement("button");
+    b.type = "button"; b.className = "item"; b.setAttribute("aria-pressed", p.id === ui.projSel);
+    b.innerHTML = `<span>${esc(p.name)}</span><small>${p.drawings.length} drawing${p.drawings.length === 1 ? "" : "s"}</small>`;
+    b.addEventListener("click", () => { ui.projSel = p.id; projDialog(); });
+    li.appendChild(b); pl.appendChild(li);
+  });
+  $("drwHead").textContent = P ? `Drawings in ${P.name}` : "Drawings";
+  $("drwPane").hidden = !P;
+  dl.innerHTML = P && P.drawings.length ? "" : `<li class="empty">No drawings in this project yet.</li>`;
+  if (P) [...P.drawings].sort((a, b) => b.updated - a.updated).forEach(d => {
+    const li = document.createElement("li"), open = proj.cur.p === P.id && proj.cur.d === d.id;
+    li.className = "drw" + (open ? " open" : "");
+    li.innerHTML = `<div class="dn"><span></span><small>${open ? "Open now · " : ""}saved ${esc(when(d.updated))} · ${((d.doc && d.doc.items) || []).length} item${((d.doc && d.doc.items) || []).length === 1 ? "" : "s"}</small></div>` +
+      `<button type="button" class="btn sm" data-a="open">Open</button><button type="button" class="btn sm" data-a="ren">Rename</button><button type="button" class="btn sm" data-a="del">Delete</button>`;
+    li.querySelector(".dn span").textContent = d.name;
+    li.querySelector('[data-a="open"]').addEventListener("click", () => { openDrawing(P, d); dlg.close(); });
+    li.querySelector('[data-a="ren"]').addEventListener("click", () => { const n = prompt("Drawing name", d.name); if (n && n.trim()) { d.name = n.trim(); projSave(); projDialog(); projLabel(); } });
+    li.querySelector('[data-a="del"]').addEventListener("click", () => {
+      if (!confirm(`Delete the drawing "${d.name}"? This can't be undone.`)) return;
+      P.drawings = P.drawings.filter(q => q !== d); if (open) proj.cur = {}; projSave(); projDialog(); projLabel(); });
+    dl.appendChild(li);
+  });
+  $("drwName").placeholder = P ? freeName(P.drawings, `Drawing ${P.drawings.length + 1}`) : "Drawing name";
+}
+$("projBtn").addEventListener("click", () => { ui.projSel = proj.cur.p || ui.projSel; projDialog(); $("projDlg").showModal(); });
+$("projClose").addEventListener("click", () => $("projDlg").close());
+$("projNew").addEventListener("click", () => {
+  const n = $("projName").value.trim() || freeName(proj.projects, "Project " + (proj.projects.length + 1));
+  const p = { id: uid(), name: freeName(proj.projects, n), drawings: [] }; proj.projects.push(p); ui.projSel = p.id;
+  $("projName").value = ""; projSave(); projDialog();
+});
+$("projName").addEventListener("keydown", e => { if (e.key === "Enter") $("projNew").click(); });
+$("drwSave").addEventListener("click", () => {
+  const P = projOf(ui.projSel); if (!P) return;
+  const d = { id: uid(), name: freeName(P.drawings, $("drwName").value.trim() || $("drwName").placeholder), updated: Date.now(), doc: JSON.parse(JSON.stringify(doc)) };
+  P.drawings.push(d); proj.cur = { p: P.id, d: d.id }; $("drwName").value = "";
+  if (projSave()) say(`Saved as ${d.name} in ${P.name}. Changes now save to it as you work.`, "ok");
+  projDialog(); projLabel();
+});
+$("drwName").addEventListener("keydown", e => { if (e.key === "Enter") $("drwSave").click(); });
+$("drwNew").addEventListener("click", () => {
+  const P = projOf(ui.projSel); if (!P) return;
+  if (!curDrawing() && doc.items.length && !confirm("The drawing on screen isn't saved to a project. Start a new blank drawing anyway?")) return;
+  const d = { id: uid(), name: freeName(P.drawings, $("drwName").value.trim() || $("drwName").placeholder), updated: Date.now(), doc: { v: 1, style: Object.assign({}, doc.style), items: [] } };
+  P.drawings.push(d); $("drwName").value = ""; openDrawing(P, d); $("projDlg").close();
+});
+$("projRename").addEventListener("click", () => { const P = projOf(ui.projSel); if (!P) return; const n = prompt("Project name", P.name);
+  if (n && n.trim()) { P.name = n.trim(); projSave(); projDialog(); projLabel(); } });
+$("projDelete").addEventListener("click", () => {
+  const P = projOf(ui.projSel); if (!P) return;
+  if (!confirm(`Delete the project "${P.name}" and its ${P.drawings.length} drawings? Export it first if you want a copy. This can't be undone.`)) return;
+  proj.projects = proj.projects.filter(q => q !== P); if (proj.cur.p === P.id) proj.cur = {}; ui.projSel = null; projSave(); projDialog(); projLabel();
+});
+$("projExport").addEventListener("click", () => {
+  const P = projOf(ui.projSel); if (!P) return;
+  const data = { sdgProject: 1, name: P.name, exported: new Date().toISOString(), drawings: P.drawings.map(d => ({ name: d.name, updated: d.updated, doc: d.doc })) };
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
+  a.download = `${P.name.replace(/[^\w .-]+/g, "_")}.sdgproj.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  say(`Exported ${P.name} to your downloads folder.`, "ok");
+});
+$("projImport").addEventListener("click", () => $("projFile").click());
+$("projFile").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return; const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (d && d.sdgProject) importProject(d, f.name);
+      else if (d && Array.isArray(d.items)) {                 // a single drawing file goes into the selected project
+        let P = projOf(ui.projSel);
+        if (!P) { P = { id: uid(), name: freeName(proj.projects, "Imported"), drawings: [] }; proj.projects.push(P); ui.projSel = P.id; }
+        P.drawings.push({ id: uid(), name: freeName(P.drawings, f.name.replace(/\.json$/i, "")), updated: Date.now(), doc: d });
+        projSave(); projDialog(); say(`Added ${f.name} to ${P.name}.`, "ok");
+      } else throw new Error("bad");
+    } catch (err) { say("That file isn't a project or drawing saved from this page.", "warn"); }
+  };
+  r.readAsText(f); e.target.value = "";
 });
 
 // ---------------------------------------------------------------- wiring
 [["tSelect", "select"], ["tPipe", "pipe"], ["tText", "text"], ["tArrow", "arrow"], ["tDim", "dim"]].forEach(([id, t]) => $(id).addEventListener("click", () => setTool(t)));
 $("addBtn").addEventListener("click", addProduct);
+$("bGroup").addEventListener("click", group); $("bUngroup").addEventListener("click", ungroup);
+$("runLen").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); const t = e.target.value.trim(); if (!t) { finishPipe(); e.target.blur(); return; }
+    const L = parseLen(t); if (L) { typedRun(L); e.target.value = ""; } else say(`"${t}" isn't a length I can read. Try 24, 2'-6" or 600mm.`, "warn"); }
+  else if (e.key === "Escape") { e.target.value = ""; e.target.blur(); }
+});
 $("bRot").addEventListener("click", rotate); $("bFlip").addEventListener("click", mirror); $("bDup").addEventListener("click", dup); $("bDel").addEventListener("click", del);
 $("bUndo").addEventListener("click", () => step(-1)); $("bRedo").addEventListener("click", () => step(1));
 $("bIn").addEventListener("click", () => zoom(1.25)); $("bOut").addEventListener("click", () => zoom(0.8)); $("bFit").addEventListener("click", () => { fit(); draw(); });

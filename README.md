@@ -41,7 +41,14 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
   dimension line goes. Aligned, horizontal or vertical. Drag the end handles or the middle handle to adjust.
 - Pipe run lengths: tick "Run lengths" on a pipe to label every straight run with its centreline length,
   point to point.
-- Lengths read in ft-in, in or mm (Drawing style). ft-in and in round to 1/16".
+- Lengths read in ft-in, in or mm (Drawing style). ft-in and in round to 1" by default (1/2" and 1/16" are
+  options). At 1" and 1/2", pipe runs drawn with the mouse step in that amount.
+- Typed pipe lengths: while drawing a pipe, aim with the mouse, type a length (24, 2'-6", 600mm) and press Enter.
+  A selected pipe lists every run's length; change one and the rest of the pipe moves with it.
+- Grouping: Shift+click or Shift+drag a box to select several items, then Group (Ctrl+G). A group moves, copies,
+  rotates and deletes as one. Alt+click edits one item inside a group. Ctrl+A selects everything.
+- Projects: save drawings by name into projects (kept in the browser). The open drawing saves as you work.
+  Export a project to one .json file to back it up or move it; Import or Open reads it back.
 - Spirax Sarco logo: tick it on any product, then pick on the body, above or below, and the size.
 
 ## Products so far

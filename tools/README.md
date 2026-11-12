@@ -35,6 +35,8 @@ Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for
 - `strainers.py`  Fig 16HP, 16L, 34, 34HP, 36, 36HP; cap slides along the leg to hit dimension B; drain port
 - `valves.py`     A3S / A3SS; handwheel scaled as a unit to dimension C
 - `pumps.py`      Pivotrol PTF and PTF Top; nozzles and check valves scaled as a unit to dimension A
+- `separators.py` S5 / S6 (traced; caps keep drawn size, body to H, plugs slid to B and C, nozzles to A) and
+                  S4A / S4A-FL (hand-built from helper shapes, all sizes from the TI table)
 - `make_packs.py` writes packs, previews, catalog and index
 - `catalog.json`  families and product order shown in the app
 - `sources.py`    where the source PDFs are for this session
@@ -47,6 +49,19 @@ Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for
 - Not traced yet from TI-P207: PTF Top T-Bone (p885, the elevation shows the tee end-on), PTF4 (p901, vector,
   many leaders cross the tank), PTF-HP (p891) and PTF-HTF (p896), whose drawings do not come out of
   `get_drawings()` and need a closer look.
+
+- S5 and S6 sheets carry the same outline at different scales. `separators.py` moves the S6 linework into the S5
+  frame (`K6`, `O6`) so one set of landmarks works for both. The S6 cap leaders sit in different spots, see `DROP6`.
+- Screwed / SW / BW versions of a flanged-only drawing: cut the nozzle off at the hub where the TI's
+  "A Scrd" extension line sits, and close the end with a short line.
+- Some sheets draw the outline as filled shapes instead of strokes (S4A 8"-18", TI-P139-03-US). `collect()` only
+  reads strokes, so those are redrawn by hand. Check `Counter(d['type'] for d in page.get_drawings())` first:
+  lots of `'f'` and few `'s'` means filled outlines.
+- Product variants are one list per product, the same for every size. A product whose connections change with size
+  (S4A: NPT/SW up to 2", flanged from 2-1/2") has to be split into two packs.
+- When checking a pack against the TI table, the fill runs to the outer edge of the stroke and `box` adds another
+  half line. Centreline size = box minus two line widths.
+- The ports list can carry more than three connections; extras (vent, motive, exhaust) have no direction.
 
 ## Conventions the app relies on
 

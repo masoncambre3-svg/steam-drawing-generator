@@ -4,7 +4,8 @@ SDG.index({
   "Steam traps",
   "Strainers",
   "Valves",
-  "Pumps"
+  "Pumps",
+  "Separators"
  ],
  "packs": [
   "steam-traps/TD52/TD52.js",
@@ -21,6 +22,10 @@ SDG.index({
   "strainers/FIG36HP/FIG36HP.js",
   "valves/A3S/A3S.js",
   "pumps/PTF/PTF.js",
-  "pumps/PTF-TOP/PTF-TOP.js"
+  "pumps/PTF-TOP/PTF-TOP.js",
+  "separators/S5/S5.js",
+  "separators/S6/S6.js",
+  "separators/S4A/S4A.js",
+  "separators/S4A-FL/S4A-FL.js"
  ]
 });

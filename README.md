@@ -20,6 +20,8 @@ products/
   steam-traps/<ID>/<ID>.js one product per folder, plus preview.png
   strainers/<ID>/<ID>.js
   valves/<ID>/<ID>.js
+  pumps/<ID>/<ID>.js
+  separators/<ID>/<ID>.js
 tools/                     the tracing kit used to make packs (not deployed)
 ```
 
@@ -39,4 +41,5 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
 | Strainers | Fig 16HP, Fig 16L, Fig 34, Fig 34HP, Fig 36, Fig 36HP |
 | Valves | A3S / A3SS |
 | Pumps | PTF / PTF-SS (2" x 2", 3" x 2"), PTF Top Inlet (3" x 3") |
+| Separators | S5, S6 (1/2" to 2"), S4A (1/2" to 2" screwed/SW), S4A flanged (2-1/2" to 18") |
 | Fittings (built in) | 90° elbow, tee, concentric reducer, eccentric reducer |

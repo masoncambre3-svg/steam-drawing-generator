@@ -181,7 +181,25 @@ def build_pumps(only=None):
                         source="Traced from the TI outline drawing", note=d.get("note", "")), syms)
 
 
-BUILDERS = {"steam-traps": build_traps, "strainers": build_strainers, "valves": build_valves, "pumps": build_pumps}
+def build_separators(only=None):
+    import separators as SE
+    for model, d in SE.DATA.items():
+        if only and only != model:
+            continue
+        syms = {}
+        for size in d["sizes"]:
+            for v in d["variants"]:
+                s = SE.Separator(model, size, v)
+                syms[f"{model}|{size}|{v}"] = parts(s, s.arrow)
+        hand = model.startswith("S4A")
+        write_pack("separators", "Separators", model,
+                   dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
+                        source="Redrawn by hand from the TI picture and table" if hand else "Traced from the TI outline drawing",
+                        note=d["note"]), syms)
+
+
+BUILDERS = {"steam-traps": build_traps, "strainers": build_strainers, "valves": build_valves, "pumps": build_pumps,
+            "separators": build_separators}
 
 if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if not a.startswith("--")]

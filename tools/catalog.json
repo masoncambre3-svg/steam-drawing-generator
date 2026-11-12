@@ -38,6 +38,16 @@
     "PTF",
     "PTF-TOP"
    ]
+  },
+  {
+   "slug": "separators",
+   "name": "Separators",
+   "products": [
+    "S5",
+    "S6",
+    "S4A",
+    "S4A-FL"
+   ]
   }
  ]
 }

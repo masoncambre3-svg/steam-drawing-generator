@@ -194,6 +194,21 @@ previews. apptest.py also needs `playwright` and Chrome.
     tested in the page from disk: drop-inline for every new inline product in both pipe directions (in upstream, both
     pipes joined), and USM90 / UTDS90 / UTDS46M snapping onto the PC90 side view trap face.
 
+- Product groups and panel height, 2026-11-16:
+  - `catalog.json` families can have `groups` (name + product IDs). `make_packs.write_index()` puts them in
+    `products/index.js` as `groups: {family: [[name, [ids]]]}`; the loader keeps them in `SDG.groups` and the picker
+    shows a second chip row (`#groups`) under the families. A family without groups shows no second row. A product
+    left out of every group goes under "Other" (and `--index` prints a warning), so new packs never disappear.
+  - Groups now: Steam traps (Thermodynamic, Float & thermostatic, Inverted bucket, Thermostatic, Universal trap
+    units), Pipeline connectors (Trapping stations, 2-bolt, 4-bolt), Check valves (Disc, Lift, Sight check).
+  - `apptest.py` clicks the product's group chip before its button. Run it after changing groups.
+  - The left panel is held to the drawing board's height on screens wider than 900 px (`#side` height 0 /
+    min-height 100% in a stretched grid row) and scrolls inside itself.
+  - Universal trap units should not have pipe sizes: the size list is the model / pressure rating (UFT32-4.5 ...).
+    UIB30, UIB30H, UIB45 still list 1/2" to 1" because they are drawn on the PC10HP connector, whose length changes
+    with size. To fix: trace the bucket without the connector (port at the connector centreline, like USM90) and make
+    the PC10HP front view its own connector pack. Needs TI-P113-01, TI-P113-03 and TI-P128-10.
+
 ## Conventions the app relies on
 
 - Symbol key: `ID|size|variant`, sizes written like `3/4"` and `1-1/2"`.

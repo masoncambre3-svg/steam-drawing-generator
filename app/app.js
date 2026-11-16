@@ -1,6 +1,6 @@
 // Steam Drawing Generator: the editor. Product drawings live in /products, one pack file per product.
 // Product library: assembled from the pack files under /products (see app/loader.js)
-const LIB = { families: [...SDG.families], products: [], symbols: {} };
+const LIB = { families: [...SDG.families], groups: SDG.groups || {}, products: [], symbols: {} };
 for (const pack of SDG.packs) {
   if (!LIB.families.includes(pack.product.family)) LIB.families.push(pack.product.family);
   LIB.products.push(pack.product); Object.assign(LIB.symbols, pack.symbols);
@@ -72,7 +72,7 @@ const PRESETS = [["Blue", "#3f86dc"], ["Navy", "#1f3f73"], ["Steel grey", "#8d99
                  ["Orange", "#e58a2b"], ["Yellow", "#e9c53c"], ["Green", "#3f9a5f"], ["White", "#f2f4f7"]];
 const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
-const BUILD = "11";
+const BUILD = "12";
 const LOGO = window.SDG_LOGO || null;                       // vector Spirax Sarco logo, app/logo.js
 const STYLE0 = { shade: true, blackLines: false, units: "ftin", prec: 1 };
 const UNITS = [["ftin", "ft-in"], ["in", "in"], ["mm", "mm"]];
@@ -671,7 +671,15 @@ function panel() {
     ui.pick.family = v; panel(); });
   const asmMode = !editing && ui.pick.family === MYASM;     // the picker shows saved assemblies instead of products
   $("asmBody").hidden = !asmMode; $("prodBody").hidden = asmMode;
-  if (asmMode) { $("prodTitle").textContent = "Add a product"; $("families").hidden = false; famChips(); asmPanel(); }
+  if (asmMode) { $("prodTitle").textContent = "Add a product"; $("families").hidden = false; $("groups").hidden = true; famChips(); asmPanel(); }
+  // sub-groups of the family (Steam traps: thermodynamic, float & thermostatic, ...), from products/index.js
+  const gs = asmMode ? [] : (LIB.groups[ui.pick.family] || []).map(([n, ids]) => [n, ids.filter(id => LIB.products.some(q => q.id === id))]).filter(g => g[1].length);
+  if (!editing && gs.length) {
+    const g = gs.find(x => x[0] === ui.pick.group) || gs.find(x => x[1].includes(ui.pick.product)) || gs[0];
+    ui.pick.group = g[0];
+    if (!g[1].includes(ui.pick.product)) ui.pick.product = g[1][0];
+  }
+  const inGroup = q => !gs.length || gs.find(x => x[0] === ui.pick.group)[1].includes(q.id);
   let p = asmMode ? null : LIB.products.find(q => q.id === tgt.product);
   if (!editing && !asmMode) {
     if (!p || p.family !== ui.pick.family) { ui.pick.product = LIB.products.find(q => q.family === ui.pick.family).id; p = LIB.products.find(q => q.id === ui.pick.product); }
@@ -681,10 +689,12 @@ function panel() {
   if (p) {
     $("prodTitle").textContent = editing ? "Selected product" : "Add a product";
     $("families").hidden = $("products").hidden = $("addBtn").hidden = editing;
+    $("groups").hidden = editing || !gs.length;
     if (!editing) {
       famChips();
+      if (gs.length) chipRow($("groups"), gs.map(g => g[0]), ui.pick.group, v => { ui.pick.group = v; panel(); });
       const box = $("products"); box.innerHTML = ""; gradN = 1000;
-      LIB.products.filter(q => q.family === ui.pick.family).forEach(q => {
+      LIB.products.filter(q => q.family === ui.pick.family && inGroup(q)).forEach(q => {
         const b = document.createElement("button"); b.type = "button"; b.className = "prod"; b.setAttribute("aria-pressed", q.id === ui.pick.product);
         const ts = q.sizes[Math.min(q.fit ? 5 : 1, q.sizes.length - 1)], k = `${q.id}|${ts}|${variantsOf(q, ts)[q.fit && variantsOf(q, ts).length > 2 ? 2 : 0]}`;
         const s = q.eq ? eqSym(q.id, {}, q.variants[0]) : lookup(k);

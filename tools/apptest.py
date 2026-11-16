@@ -26,7 +26,14 @@ with sync_playwright() as p:
     placed=0; missing=[]
     for pid in ids:
         info=pg.evaluate(f'(()=>{{const q=LIB.products.find(q=>q.id==="{pid}");return [q.sizes,q.variants,q.name]}})()')
-        pg.evaluate(f'document.querySelectorAll("#products button.prod")[{ids.index(pid)}].click()')
+        # families with sub-groups: click the product's group chip first, then the product's button within that group
+        grp=pg.evaluate(f'(()=>{{const g=(LIB.groups[FAMNAME]||[]).find(g=>g[1].includes("{pid}"));return g?[g[0],g[1].filter(id=>LIB.products.some(q=>q.id===id))]:null}})()')
+        if grp:
+            pg.evaluate(f'(()=>{{for(const b of document.querySelectorAll("#groups button")) if(b.textContent==={json.dumps(grp[0])}) b.click();}})()')
+        pos=grp[1].index(pid) if grp else ids.index(pid)
+        pg.evaluate(f'document.querySelectorAll("#products button.prod")[{pos}].click()')
+        got=pg.evaluate('ui.pick.product')
+        if got!=pid: missing.append(f'picked {got} for {pid}')
         for sz in info[0]:
             pg.locator('#sizes button',has_text=sz).filter(has_text=sz).first.click() if False else pg.evaluate(f'(()=>{{for(const b of document.querySelectorAll("#sizes button")) if(b.textContent.trim()==={json.dumps(sz)}) b.click();}})()')
             for v in info[1]:

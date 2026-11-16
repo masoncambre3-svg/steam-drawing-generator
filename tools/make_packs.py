@@ -105,7 +105,15 @@ def write_index():
                 packs.append(rel)
             else:
                 print("  missing pack, left out of the index:", rel)
-    idx = {"families": [f["name"] for f in cat["families"]], "packs": packs}
+    idx = {"families": [f["name"] for f in cat["families"]], "packs": packs, "groups": {}}
+    for f in cat["families"]:                      # optional sub-groups shown as a second chip row in the app
+        if not f.get("groups"):
+            continue
+        grouped = [pid for g in f["groups"] for pid in g["products"]]
+        loose = [pid for pid in f["products"] if pid not in grouped]
+        if loose:
+            print("  not in any group, shown under Other:", f["name"], loose)
+        idx["groups"][f["name"]] = [[g["name"], g["products"]] for g in f["groups"]] + ([["Other", loose]] if loose else [])
     open(os.path.join(ROOT, "products", "index.js"), "w").write(
         "// List of product packs, in display order. Built by tools/make_packs.py from tools/catalog.json.\nSDG.index(" + json.dumps(idx, indent=1) + ");\n")
     print(f"index: {len(packs)} packs in {len(cat['families'])} families")

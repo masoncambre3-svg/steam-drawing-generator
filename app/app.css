@@ -25,6 +25,8 @@ h1 { font-family: var(--font-display); font-size: 22px; font-weight: 700; margin
 header p { margin: 0; color: var(--muted); }
 .cols { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 12px; align-items: start; }
 @media (max-width: 900px) { .cols { grid-template-columns: minmax(0, 1fr); } .stage { order: -1; } }
+/* the left panel is as tall as the drawing board and scrolls inside itself (height 0 keeps it from setting the row) */
+@media (min-width: 901px) { .cols { align-items: stretch; } #side { height: 0; min-height: 100%; overflow-y: auto; overscroll-behavior: contain; } }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
 .group { padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; border-top: 1px solid var(--line); }
 .group:first-child { border-top: 0; }
@@ -41,6 +43,8 @@ button { cursor: pointer; }
 .prod[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
 .chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .chip { padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); font-size: 13px; }
+.chips.sub { padding-top: 8px; border-top: 1px dashed var(--line); }
+.chips.sub .chip { padding: 4px 9px; font-size: 12.5px; }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .row > label { color: var(--muted); font-size: 13px; }

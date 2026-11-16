@@ -65,5 +65,107 @@ SDG.index({
   "separators/S4A-FL/S4A-FL.js",
   "manifolds/MSC/MSC.js",
   "manifolds/MSD/MSD.js"
- ]
+ ],
+ "groups": {
+  "Steam traps": [
+   [
+    "Thermodynamic",
+    [
+     "TD52",
+     "TD62M",
+     "TD62M-FL",
+     "TDC46M",
+     "TD120M",
+     "TD120M-PN"
+    ]
+   ],
+   [
+    "Float & thermostatic",
+    [
+     "FT450"
+    ]
+   ],
+   [
+    "Inverted bucket",
+    [
+     "IBV-C",
+     "HM34"
+    ]
+   ],
+   [
+    "Thermostatic",
+    [
+     "BPC32Y",
+     "SMC32Y"
+    ]
+   ],
+   [
+    "Universal trap units",
+    [
+     "UFT32",
+     "UFT14HC",
+     "UBP32",
+     "UTDS46M",
+     "UTD52L",
+     "UIB30",
+     "UIB30H",
+     "UIB45",
+     "USM90",
+     "UTDS90"
+    ]
+   ]
+  ],
+  "Pipeline connectors": [
+   [
+    "Trapping stations",
+    [
+     "STS17-SB",
+     "STS17-DBUS",
+     "STS17-DBBUSH",
+     "STS17-DBBUSHDSH"
+    ]
+   ],
+   [
+    "2-bolt connectors",
+    [
+     "PC4000",
+     "UPC-STR",
+     "UPC-ST"
+    ]
+   ],
+   [
+    "4-bolt connectors",
+    [
+     "PC90",
+     "PC90-BW",
+     "PC90-SIDE"
+    ]
+   ]
+  ],
+  "Check valves": [
+   [
+    "Disc check",
+    [
+     "DCV41",
+     "DCV10",
+     "SDCV44",
+     "CVS10"
+    ]
+   ],
+   [
+    "Lift check",
+    [
+     "LCV",
+     "LCV-FL",
+     "LCV-PN"
+    ]
+   ],
+   [
+    "Sight check",
+    [
+     "SIGHTCHECK"
+    ]
+   ]
+  ]
+ }
 });

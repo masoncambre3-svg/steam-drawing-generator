@@ -2,8 +2,8 @@
 // products/index.js lists the packs; each pack file calls SDG.register(...) with one product.
 // Plain script tags are used (not fetch) so the folder also works opened straight from disk.
 window.SDG = {
-  families: [], list: [], packs: [], failed: [],
-  index(i) { this.families = i.families || []; this.list = i.packs || []; },
+  families: [], groups: {}, list: [], packs: [], failed: [],
+  index(i) { this.families = i.families || []; this.groups = i.groups || {}; this.list = i.packs || []; },
   register(pack) { this.packs.push(pack); }
 };
 (function () {

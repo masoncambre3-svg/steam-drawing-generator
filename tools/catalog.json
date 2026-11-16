@@ -25,6 +25,54 @@
     "UIB45",
     "USM90",
     "UTDS90"
+   ],
+   "groups": [
+    {
+     "name": "Thermodynamic",
+     "products": [
+      "TD52",
+      "TD62M",
+      "TD62M-FL",
+      "TDC46M",
+      "TD120M",
+      "TD120M-PN"
+     ]
+    },
+    {
+     "name": "Float & thermostatic",
+     "products": [
+      "FT450"
+     ]
+    },
+    {
+     "name": "Inverted bucket",
+     "products": [
+      "IBV-C",
+      "HM34"
+     ]
+    },
+    {
+     "name": "Thermostatic",
+     "products": [
+      "BPC32Y",
+      "SMC32Y"
+     ]
+    },
+    {
+     "name": "Universal trap units",
+     "products": [
+      "UFT32",
+      "UFT14HC",
+      "UBP32",
+      "UTDS46M",
+      "UTD52L",
+      "UIB30",
+      "UIB30H",
+      "UIB45",
+      "USM90",
+      "UTDS90"
+     ]
+    }
    ]
   },
   {
@@ -41,6 +89,33 @@
     "PC90-SIDE",
     "UPC-STR",
     "UPC-ST"
+   ],
+   "groups": [
+    {
+     "name": "Trapping stations",
+     "products": [
+      "STS17-SB",
+      "STS17-DBUS",
+      "STS17-DBBUSH",
+      "STS17-DBBUSHDSH"
+     ]
+    },
+    {
+     "name": "2-bolt connectors",
+     "products": [
+      "PC4000",
+      "UPC-STR",
+      "UPC-ST"
+     ]
+    },
+    {
+     "name": "4-bolt connectors",
+     "products": [
+      "PC90",
+      "PC90-BW",
+      "PC90-SIDE"
+     ]
+    }
    ]
   },
   {
@@ -74,6 +149,31 @@
     "LCV-PN",
     "CVS10",
     "SIGHTCHECK"
+   ],
+   "groups": [
+    {
+     "name": "Disc check",
+     "products": [
+      "DCV41",
+      "DCV10",
+      "SDCV44",
+      "CVS10"
+     ]
+    },
+    {
+     "name": "Lift check",
+     "products": [
+      "LCV",
+      "LCV-FL",
+      "LCV-PN"
+     ]
+    },
+    {
+     "name": "Sight check",
+     "products": [
+      "SIGHTCHECK"
+     ]
+    }
    ]
   },
   {

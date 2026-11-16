@@ -34,7 +34,9 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
 ## Adding a product
 
 1. Trace it with the kit in `tools/` (see `tools/README.md`). That writes `products/<family>/<ID>/`.
-2. `tools/make_packs.py` rewrites `products/index.js`.
+2. `tools/make_packs.py` rewrites `products/index.js`. If the family has groups in `tools/catalog.json` (Steam traps,
+   Pipeline connectors, Check valves), add the new ID to the right group there and run `make_packs.py --index`;
+   an ID in no group shows under "Other".
 3. Commit and push. Vercel redeploys on push. `app/` does not change.
 
 ## Drawing tools

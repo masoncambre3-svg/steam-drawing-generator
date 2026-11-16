@@ -118,11 +118,11 @@ PC_NOTE = ("Front view, handwheels facing you, flow left to right, the trap face
            "third connection point is the trap face, in the middle on the pipe centreline: a trap snapped there is "
            "drawn behind the connector. The customer's line drain tube on the PC4001 drawing is left out. Both sizes "
            "are drawn the same.")
-DATA["PC4000"] = {
-    "name": "PC4000 / PC4001 / PC40", "type": "Pipeline connector, two piston isolation valves", "ti": "TI-P128-33",
-    "tracer": "pc", "sizes": {'1/2"': {}, '3/4"': {}}, "variants": ["PC4000", "PC4001", "PC40"], "variantLabel": "Model",
-    "note": PC_NOTE,
-}
+# PC4000 / PC4001 / PC40 taken out of the library 2026-11-16 (Mason: too much guesswork in the front view). _pc and
+# PC_NOTE still build it; put this DATA entry back and the ID in catalog.json to bring it back.
+# DATA["PC4000"] = {"name": "PC4000 / PC4001 / PC40", "type": "Pipeline connector, two piston isolation valves",
+#     "ti": "TI-P128-33", "tracer": "pc", "sizes": {'1/2"': {}, '3/4"': {}}, "variants": ["PC4000", "PC4001", "PC40"],
+#     "variantLabel": "Model", "note": PC_NOTE}
 
 
 # Front view, handwheels facing you, trap on the back (Mason, 2026-11-16). The only drawing of this side is the TI's

@@ -231,6 +231,10 @@ previews. apptest.py also needs `playwright` and Chrome.
       90 degrees). Strainer: bolt line at about 55 degrees, which 90 degree turns cannot match.
     - UTDS90 "Front view, on connector" is BUILT, not traced (its TI has no such view): heights from the side view,
       USM90's 4-bolt flange, widths across assumed (cap 64, body 54, strainer housing 40, screw rows 40 apart).
+    - PC4000 / PC4001 / PC40 then taken out of the library (Mason: the front view is too much of a guess). The
+      tracer and note are still in connectors.py (DATA entry commented out).
+  - Product notes are no longer shown in the app (Mason: too long, pushed the panel down). Keep writing them in the
+    tracers: they are the record of what was set from the TI and what was assumed, for the next session.
   - Still to do: front views for UFT32 (TI-P146-05), UFT14HC (TI-P712-01), UTDS46M (TI-P187-03), UTD52L, UIB30 /
     UIB45 (TI-P113-01 / -03); a trap point on STS17.2 (TI-P128-22).
   - Test a new pair with /tmp-style playwright: add the connector, add the trap a few mm off the trap point, check

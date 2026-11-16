@@ -316,7 +316,7 @@ function pipeLabel(it) {
   if (it.len) lens.forEach((l, i) => { if (l >= fs * 2) o += along(i, fmtLen(l), -1); });
   return o;
 }
-// A product snapped to a connection its pack marks "behind" (a trap on the back of a PC4000) is drawn under that product.
+// A product snapped to a connection its pack marks "behind" (a trap on the back of a connector) is drawn under that product.
 function behindIds(items) {
   const bp = [], out = new Set();
   for (const it of items) if (it.type === "sym" && valid(it)) { const s = symOf(it); if (s.behind) { const T = symXform(it); s.behind.forEach(i => bp.push([it.id, T(s.ports[i])])); } }
@@ -772,7 +772,7 @@ function panel() {
     $("symArrow").onchange = e => set("arrow", e.target.checked);
     const inch = mm => (mm / 25.4).toFixed(mm / 25.4 >= 10 ? 1 : 2) + '"';
     $("dims").innerHTML = s ? `<tr><th>${p.fit || p.eq ? "Dimension" : "TI dim"}</th><th>in</th><th>mm</th></tr>` + Object.keys(s.dims).map(k => `<tr><td>${k}</td><td>${inch(s.dims[k])}</td><td>${s.dims[k]}</td></tr>`).join("") : "";
-    $("prodNote").hidden = !p.note; $("prodNote").textContent = p.note || "";
+    // product notes (p.note) are tracing records for the next session and are not shown (Mason, 2026-11-16)
   }
 
   // pipe

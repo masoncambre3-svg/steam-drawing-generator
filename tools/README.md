@@ -36,6 +36,8 @@ previews. apptest.py also needs `playwright` and Chrome.
 - `strainers.py`  Fig 16HP, 16L, 34, 34HP, 36, 36HP; cap slides along the leg to hit dimension B; drain port
 - `valves.py`     A3S / A3SS; handwheel scaled as a unit to dimension C
 - `pumps.py`      Pivotrol PTF and PTF Top; nozzles and check valves scaled as a unit to dimension A
+- `pumps2.py`     PTF4, PPEC (raster), APT10, APT14 / APT14HC / APT14SHC; helpers `_rigid_map` (small parts such as nuts
+                  keep their shape where the body is stretched) and `_finish` (silhouette, box, ports from mm chains)
 - `universal.py`  universal (two bolt) trap units: UFT32, UFT14HC, UBP32, UTDS46M (trap unit only, one port at the
                   connector face), UIB45 / UIB30 / UIB30H (front view on the PC10HP, in and out at the connector ends),
                   UTD52L (vectorised picture). Also the shared helpers `_chains` (strokes with colour and dash flag),
@@ -51,6 +53,8 @@ previews. apptest.py also needs `playwright` and Chrome.
                   helpers `_rigid` (move a group of chains as one piece, e.g. a flow arrow), `_cut_x` (cut a drawing off at
                   two x values, for welded ends), `_fy_flange` (flange y that still meets the neck)
 - `make_packs.py` writes packs, previews, catalog and index
+- `gridsheet.py`  every size and variant of the products named, all at ONE scale, wrapped into rows: the preview
+                  image to send (`python3 tools/gridsheet.py pumps /tmp/p PTF4,PPEC`)
 - `sheet.py`      every size of one family on one sheet (`python3 tools/sheet.py check-valves /tmp/cv`), for the check
                   before handing over and for the preview image the user asks for; `--all` every variant, `--only=A,B`
                   just those products
@@ -239,6 +243,34 @@ previews. apptest.py also needs `playwright` and Chrome.
     UIB45 (TI-P113-01 / -03); a trap point on STS17.2 (TI-P128-22).
   - Test a new pair with /tmp-style playwright: add the connector, add the trap a few mm off the trap point, check
     portsOf(trap)[0] equals portsOf(connector)[2]; then drop the connector on pipes both ways (applyInline).
+
+- Pumps (TI-P207-10-US, TI-P208-02-US, TI-P612-02, TI-P612-28), 2026-11-16:
+  - Pumps now have groups in catalog.json: Pressure powered pumps (PTF, PTF-TOP, PTF4, PPEC) and Automatic pump
+    traps (APT10, APT14, APT14HC, APT14SHC). make_packs builds pumps.py and pumps2.py together; pumps2 packs use dec=1.
+  - PTF4 (p5): the whole outline is one 0.36 pt path of 23,800 items that carries a centre-line dash pattern but prints
+    solid. New `collect(..., ignore_dash=True)` keeps it. Leaders are 0.5 pt (max_lw 0.4 drops them); grey 0.13 pt
+    lines are centre lines and seams. The drawn in / out centre line (0.36 pt, y 468.2) is dropped by hand. Ports at
+    the companion flange hub ends; x from L, y from N; A (ref only) comes out 1015 against 1002.
+  - APT14 (p9 right view): one outline, drawn at APT14 proportions, used for APT14, HC and SHC. Height in three bands
+    (base-centreline B, centreline-motive C, motive-top E), body stretched along the pipe to A for the flange picked;
+    flanges keep drawn thickness, OD from EN 1092-1 PN16 / B16.5 Cl150 / JIS 10K (`FLANGE_OD`). Screwed: flanges cut
+    at their backs. The inlet check end that sticks out I past the inlet face is left off. HC / SHC stretch the body
+    about 1.35x; `_rigid_map` keeps the nuts and bosses round.
+  - APT10 (p5 left view): in and out are on the end face one above the other, so it is the side view mirrored, both
+    ports facing left (in above out). No drop inline. Every line is its own path. Exhaust point is a guess (hidden
+    behind the motive strainer).
+  - PPEC (p5 iron, p6 steel): the drawings are 1-bit image masks; `pymupdf.Pixmap(doc, xref)` gives n=1 alpha only,
+    so ink = 255 - samples (`_ppec_image`). Dimension lines are IN the picture: painted out with white boxes
+    (`PPEC_PIC`), centre-line dashes cleared row by row where paper is just above and below. Short skeleton pieces
+    are kept when they join two others (pixel steps on long lines) and dropped when they are spurs; without that the
+    outlines come out dashed and the fill does not close. Regions (inlet check, body, outlet check) are vectorised and
+    mapped separately; the iron 1-1/2" uses the lift check the TI draws 100 px lower. Iron P is longer than M+A+N:
+    drawn as nipples. Steel M / N run from the body flange face to the stud ends; ports at the hub ends.
+  - Pumps have 4 to 6 ports (in, out, motive, exhaust ...), so drop-inline is off for them, as for the PTF.
+  - Tests: `apptest.py "Pumps"` placed 23, no errors. Pipes snapped to in and out followed the pump when it was moved
+    (PTF4, APT10, APT14, APT14SHC, PPEC iron and steel).
+  - Not done: PTF4 vent assist outlets and gauge connections as ports; PPEC plan view and the BSP / SW options;
+    APT14 side view (D, F) and withdrawal H; APT10 front view (in / out face you there).
 
 ## Conventions the app relies on
 

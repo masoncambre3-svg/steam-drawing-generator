@@ -38,3 +38,7 @@ USM90_PDF = os.environ.get("SDG_USM90", UP + "02634cd5-USM90-TI-P805-01-EN.pdf")
 UTDS90_PDF = os.environ.get("SDG_UTDS90", UP + "99be1c07-UTDS90-TI-P804-01-EN.pdf")       # TI-P804-01, UTDS90 trap unit
 PC90_PDF = os.environ.get("SDG_PC90", UP + "ccfc3c68-PC90-TI-P806-01-EN.pdf")             # TI-P806-01, PC90 4-bolt connector
 UPC_PDF = os.environ.get("SDG_UPC", UP + "b8d7db56-Universal_Pipeline_Connector-TI-P127-03-US.pdf")  # TI-P127-03-US, US universal connectors
+PTF4_PDF = os.environ.get("SDG_PTF4", UP + "8a33e252-PTF4-TI-P207-10-US.pdf")             # TI-P207-10-US, PTF4 Pivotrol (high capacity)
+PPEC_PDF = os.environ.get("SDG_PPEC", UP + "ac3b30a5-PPEC-TI-P208-02-US.pdf")             # TI-P208-02-US, PPEC low-profile pump
+APT14_PDF = os.environ.get("SDG_APT14", UP + "3b11111f-APT14-TI-P612-02-EN.pdf")          # TI-P612-02, APT14 / APT14HC / APT14SHC
+APT10_PDF = os.environ.get("SDG_APT10", UP + "afc4b36e-APT10-TI-P612-28-EN.pdf")          # TI-P612-28, APT10 / APT10SS

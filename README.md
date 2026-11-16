@@ -86,7 +86,7 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
 | Strainers | Fig 16HP, Fig 16L, Fig 34, Fig 34HP, Fig 36, Fig 36HP |
 | Valves | A3S / A3SS |
 | Check valves | DCV41, DCV10, SDCV44, LCV3/4/6/7 (screwed / SW, ASME flanged, PN flanged), CVS10, Sight Check |
-| Pumps | PTF / PTF-SS (2" x 2", 3" x 2"), PTF Top Inlet (3" x 3") |
+| Pumps | Pressure powered: PTF / PTF-SS (2" x 2", 3" x 2"), PTF Top Inlet (3" x 3"), PTF4 (4" x 4"), PPEC (1", 1-1/2"; iron / steel / 316 SS). Automatic pump traps: APT10, APT14 (screwed, PN16, ASME 150, JIS/KS 10), APT14HC, APT14SHC |
 | Separators | S5, S6 (1/2" to 2"), S4A (1/2" to 2" screwed/SW), S4A flanged (2-1/2" to 18") |
 | Manifolds | MSC condensate collection, MSD steam distribution (4, 8, 12, 16 stations, with or without stand) |
 | Fittings (built in) | 90° elbow, tee, concentric reducer, eccentric reducer |

@@ -56,8 +56,10 @@ def _dash_first(d):
 
 
 def collect(pdf, page_no, clip, outline_lw, drop=(), keep_thin=True, inside_frac=0.92,
-          keep_fills=False, close=3, min_thin_lw=0.0, extra_outline=(), max_lw=9.0, short_dash_solid=False):
-    """clip/drop boxes are (x0, y0, x1, y1) in pdf points on the page."""
+          keep_fills=False, close=3, min_thin_lw=0.0, extra_outline=(), max_lw=9.0, short_dash_solid=False, ignore_dash=False):
+    """clip/drop boxes are (x0, y0, x1, y1) in pdf points on the page.
+    ignore_dash: keep every stroke whatever its dash pattern (sheets that leave a centre-line dash set on the
+    whole outline and still print it solid, e.g. TI-P207-10-US); drop real centre lines with drop boxes."""
     page = pymupdf.open(pdf)[page_no - 1]
     x0, y0, x1, y1 = clip
     W, H = int((x1-x0)*PX), int((y1-y0)*PX)
@@ -69,7 +71,7 @@ def collect(pdf, page_no, clip, outline_lw, drop=(), keep_thin=True, inside_frac
         lw = d.get("width") or 0
         if lw > max_lw:
             continue                                   # heavy dimension lines
-        dash = _dash_first(d)
+        dash = None if ignore_dash else _dash_first(d)
         if dash and not short_dash_solid:
             continue                                   # centre lines, hidden lines
         stroked = d["type"] in ("s", "fs") and d.get("color") is not None

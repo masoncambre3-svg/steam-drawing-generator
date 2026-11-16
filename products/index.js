@@ -57,6 +57,12 @@ SDG.index({
   "check-valves/SIGHTCHECK/SIGHTCHECK.js",
   "pumps/PTF/PTF.js",
   "pumps/PTF-TOP/PTF-TOP.js",
+  "pumps/PTF4/PTF4.js",
+  "pumps/PPEC/PPEC.js",
+  "pumps/APT10/APT10.js",
+  "pumps/APT14/APT14.js",
+  "pumps/APT14HC/APT14HC.js",
+  "pumps/APT14SHC/APT14SHC.js",
   "separators/S5/S5.js",
   "separators/S6/S6.js",
   "separators/S4A/S4A.js",
@@ -160,6 +166,26 @@ SDG.index({
     "Sight check",
     [
      "SIGHTCHECK"
+    ]
+   ]
+  ],
+  "Pumps": [
+   [
+    "Pressure powered pumps",
+    [
+     "PTF",
+     "PTF-TOP",
+     "PTF4",
+     "PPEC"
+    ]
+   ],
+   [
+    "Automatic pump traps",
+    [
+     "APT10",
+     "APT14",
+     "APT14HC",
+     "APT14SHC"
     ]
    ]
   ]

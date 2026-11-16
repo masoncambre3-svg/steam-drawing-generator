@@ -202,18 +202,21 @@ def build_valves(only=None):
 
 
 def build_pumps(only=None):
-    import pumps as PU
-    for model, d in PU.DATA.items():
-        if only and only != model:
-            continue
-        syms = {}
-        for size in d["sizes"]:
-            for v in d["variants"]:
-                s = PU.Pump(model, size, v)
-                syms[f"{model}|{size}|{v}"] = parts(s, s.arrow)
-        write_pack("pumps", "Pumps", model,
-                   dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
-                        source="Traced from the TI outline drawing", note=d.get("note", "")), syms)
+    import pumps as PU, pumps2 as P2                 # pumps2: PTF4, PPEC, APT10, APT14 / HC / SHC
+    for mod in (PU, P2):
+        for model, d in mod.DATA.items():
+            if only and only != model:
+                continue
+            syms = {}
+            for size in d["sizes"]:
+                for v in d["variants"]:
+                    s = mod.Pump(model, size, v)
+                    syms[f"{model}|{size}|{v}"] = parts(s, s.arrow, dec=1 if mod is P2 else 2)
+            extra = {k: d[k] for k in ("sizeLabel", "variantLabel") if k in d}
+            src = "Redrawn from the TI picture (vectorised)" if model == "PPEC" else "Traced from the TI outline drawing"
+            write_pack("pumps", "Pumps", model,
+                       dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
+                            **extra, source=src, note=d.get("note", "")), syms)
 
 
 def build_separators(only=None):

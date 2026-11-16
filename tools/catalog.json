@@ -177,7 +177,33 @@
    "name": "Pumps",
    "products": [
     "PTF",
-    "PTF-TOP"
+    "PTF-TOP",
+    "PTF4",
+    "PPEC",
+    "APT10",
+    "APT14",
+    "APT14HC",
+    "APT14SHC"
+   ],
+   "groups": [
+    {
+     "name": "Pressure powered pumps",
+     "products": [
+      "PTF",
+      "PTF-TOP",
+      "PTF4",
+      "PPEC"
+     ]
+    },
+    {
+     "name": "Automatic pump traps",
+     "products": [
+      "APT10",
+      "APT14",
+      "APT14HC",
+      "APT14SHC"
+     ]
+    }
    ]
   },
   {

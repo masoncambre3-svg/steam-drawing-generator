@@ -179,11 +179,16 @@ PC90_B = {"blank cap": {'1/2"': {"SW": 106, "Class 600": 124.5, "Class 900": 137
                          '1"': {"SW": 104, "BW": 104, "Class 600": 137, "Class 900": 149.5}}}
 _PCV = ["SW, blank cap", "SW, BD adaptor", "Class 600, blank cap", "Class 600, BD adaptor", "Class 900, blank cap",
         "Class 900, BD adaptor"]
-_PC90N = ("Front view as the TI draws it: the trap bolts to the face looking out of the page, and the flow runs right to "
-          "left (the TI arrow), so the inlet is the right end. Dropped on a pipe it turns to suit. Face to face A and B "
+_PC90N = ("Front view, the trap bolts to the face looking out of the page. The TI draws the flow right to left; it is "
+          "mirrored here to match the STS17.2 and universal connectors, inlet on the left and flow left to right (the cast "
+          "arrow points right). Dropped on a pipe it turns to suit. The third connection point is the centre of the four connector bolts (54 from the "
+          "inlet, about 5.5 below the pipe centreline), where USM90 (front view) snaps on. Face to face A and B "
           "(top of the end boss, or of the flange, to the bottom of the cap) are from the TI table. The BD adaptor is "
           "drawn as the blank cap, 2 mm shorter as the table gives it. The four connector bolts the TI draws below the "
           "cap (withdrawal distance D 85) are not drawn. ")
+
+
+PC90_BOLTS = (246.13, 139.08)    # p5 front view: centre of the four connector bolt holes (holes 49.55 pt apart = 44.6 mm)
 
 
 def _pc90_body(B, cap_k=None):
@@ -194,6 +199,7 @@ def _pc90_body(B, cap_k=None):
     r = (yc - top) * k
     kd = (B - r) / (bot - yc)
     f = lambda p: ((p[0] - xr) * k, (p[1] - yc) * (k if p[1] < yc else kd))
+    _pc90_body.trap = f(PC90_BOLTS)                       # centre of the four connector bolts, for the trap's port
     return [_mapped(segs, f) for _, segs, grey, _ in ch if grey < 0.9], k, r
 
 
@@ -221,18 +227,24 @@ def _pc90(self):
     A, B = PC90_A[nps][conn], PC90_B[cap][nps][conn]
     if conn in ("SW", "BW"):
         parts, k, r = _pc90_body(B)
+        trap = _pc90_body.trap
         if conn == "BW":                                   # BW is 1 mm shorter than SW
             parts = [_mapped(p, lambda q: (q[0] * A / 108, q[1])) for p in parts]
+            trap = (trap[0] * A / 108, trap[1])
         self.d = {"A": A, "B": B}
     else:
         d = WN[conn][nps]
         parts, k, r = _pc90_body(B - (d[0] / 2 - R_BOSS))     # B is over the flange: body B is over the boss
         e = (A - 108) / 2
         parts = [_mapped(p, lambda q: (q[0] - e, q[1])) for p in parts]
+        trap = (_pc90_body.trap[0] - e, _pc90_body.trap[1])
         parts += _wn(-e, 0.0, d, nps, +1) + _wn(-e - 108, -A, d, nps, -1)
         self.d = {"A": A, "B": B, "Flange OD (ASME B16.5)": d[0]}
     lw = 0.6
-    _finish(self, parts, lw, {"in": (0.0, 0.0), "out": (-float(A), 0.0)}, k)
+    # turned to match STS17.2 and the universal connectors: inlet on the left, flow left to right (mirror of the TI view)
+    parts = [_mapped(p, lambda q: (-q[0], q[1])) for p in parts]
+    # third connection point: the centre of the four connector bolts, where USM90's front view snaps on
+    _finish(self, parts, lw, {"in": (0.0, 0.0), "out": (float(A), 0.0), "trap": (round(-trap[0], 2), round(trap[1], 2))}, k)
 
 
 def _pc90side(self):
@@ -289,18 +301,8 @@ DATA["PC90-BW"] = {
     "sizes": {s: {} for s in ('3/4"', '1"')}, "variants": ["BW, blank cap", "BW, BD adaptor"], "variantLabel": "Connection",
     "note": _PC90N + "Butt weld ends are drawn as the SW body (the TI draws SW), A 107 instead of 108. There is no 1/2\" BW.",
 }
-DATA["PC90-SIDE"] = {
-    "name": "PC90 side view", "type": "4-bolt pipeline connector, side view (pipe end on)", "ti": "TI-P806-01",
-    "tracer": "pc90side", "sizes": {s: {} for s in _SZ},
-    "variants": ["SW / BW, blank cap", "SW / BW, BD adaptor", "Class 600, blank cap", "Class 600, BD adaptor",
-                 "Class 900, blank cap", "Class 900, BD adaptor"], "variantLabel": "Connection",
-    "note": "Side view, the TI's end view: the pipe runs into the page, so in and out are the same point at the pipe "
-            "centre. The trap face is the third connection point, on the right at the edge of the end boss, on the pipe "
-            "centreline: USM90 and UTDS90 (drawn face on the left) bolt straight on, as in the TI's views of the trap "
-            "on its connector. Width C 51 and B from the TI table. Class 600 / 900 flanges show as a circle behind the "
-            "body (ASME B16.5 diameter; the TI does not draw them); the part behind the body is not drawn. There is no "
-            "1/2\" BW. The connector bolts below the cap are not drawn.",
-}
+# PC90-SIDE (side view, pipe end on, trap face as a third port) was removed 2026-11-16 at Mason's request; _pc90side
+# above still builds it if it is wanted again (add the DATA entry back and put the ID in catalog.json).
 
 
 # ---------------------------------------------------------------- Universal pipeline connectors, US (TI-P127-03-US)

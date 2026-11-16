@@ -39,7 +39,6 @@ SDG.index({
   "connectors/PC4000/PC4000.js",
   "connectors/PC90/PC90.js",
   "connectors/PC90-BW/PC90-BW.js",
-  "connectors/PC90-SIDE/PC90-SIDE.js",
   "connectors/UPC-STR/UPC-STR.js",
   "connectors/UPC-ST/UPC-ST.js",
   "strainers/FIG16HP/FIG16HP.js",
@@ -137,8 +136,7 @@ SDG.index({
     "4-bolt connectors",
     [
      "PC90",
-     "PC90-BW",
-     "PC90-SIDE"
+     "PC90-BW"
     ]
    ]
   ],

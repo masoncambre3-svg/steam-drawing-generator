@@ -209,6 +209,23 @@ previews. apptest.py also needs `playwright` and Chrome.
     with size. To fix: trace the bucket without the connector (port at the connector centreline, like USM90) and make
     the PC10HP front view its own connector pack. Needs TI-P113-01, TI-P113-03 and TI-P128-10.
 
+- Universal traps on front-view connectors, 2026-11-16 (Mason's call): every connector is a front view, pipe left to
+  right, inlet on the left, trap face looking out of the page (STS17.2, universal strainer / straight, PC90). A trap
+  goes on as its view from the front of the connector, sitting over it, not as a side view (the app cannot turn a
+  drawing out of the page). Connectors carry a third connection point at the centre of the trap face's bolts; the
+  trap's front view has its only point there, so dragging it near snaps it on.
+  - PC90 / PC90 BW: mirrored from the TI (which flows right to left); trap point at the 4-bolt centre, 54 from the
+    inlet and 5.5 below the pipe centreline (p5 holes found by raster: the hole circles are inside big paths).
+  - PC90 side view removed (Mason doesn't need side views yet). `_pc90side` is still in connectors.py.
+  - USM90 "Front view, on connector": built from TI view D (flange face) as seen from the other side: body circle
+    C 64 in front, flange outline D 67 and lower holes only outside it. Height comes out 79.3 against B 79.
+  - Still to do (TI sheets not in the session): front views for UFT32 (TI-P146-05), UFT14HC (TI-P712-01), UBP32
+    (TI-P127-01), UTDS46M (TI-P187-03), UTD52L, UIB30 / UIB45 (TI-P113-01 / -03); trap points on STS17.2 (TI-P128-22),
+    universal strainer / straight connectors (TI-P127-03-US, 2-bolt centre); PC4000 front view (TI-P128-33).
+    UTDS90's TI has no front view of the trap at all.
+  - Test a new pair with /tmp-style playwright: add the connector, add the trap a few mm off the trap point, check
+    portsOf(trap)[0] equals portsOf(connector)[2]; then drop the connector on pipes both ways (applyInline).
+
 ## Conventions the app relies on
 
 - Symbol key: `ID|size|variant`, sizes written like `3/4"` and `1-1/2"`.

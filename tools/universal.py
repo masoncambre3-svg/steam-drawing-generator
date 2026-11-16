@@ -355,13 +355,21 @@ def _utd52l(self):
 # The connection point is the connector face, at the height of the PC90 pipe centreline. That height is read from the
 # TI's third view (trap bolted to the PC90, pipe end on): both views share the same y on the sheet. The trap's own
 # spigot sits about 5 mm below the pipe centreline.
-N_90 = ("Trap unit only, side view as the TI draws it. The PC90 4-bolt connector is not drawn here (it is the PC90 pack, "
-        "whose side view takes this trap). The connection point is the connector face at the height of the PC90 pipe "
+N_90 = ("Trap unit only, side view as the TI draws it. The PC90 4-bolt connector is not drawn here (the PC90 pack is a front "
+        "view; a side view to bolt this trap onto is not in the library for now). The connection point is the connector face at the height of the PC90 pipe "
         "centreline, read from the TI's view of the trap on its connector. ")
 DATA["USM90"] = {
     "name": "USM90", "type": "Bimetallic, sealed stainless, for PC90 4-bolt connector", "ti": "TI-P805-01",
-    "sizes": {"USM90": dict(A=115, B=79, C=64)}, "variants": ["-"], "sizeLabel": "Model",
-    "note": N_90 + "Length A (connector face to the end of the body), height B (top of the body to the bottom of the "
+    "sizes": {"USM90": dict(A=115, B=79, C=64, D=67)}, "variants": ["Front view, on connector", "Side view"],
+    "sizeLabel": "Model", "variantLabel": "View",
+    "note": "Front view, on connector: the trap as seen from the front of a PC90 (the PC90 pack's view), so it sits over "
+            "the connector. The connection point is the centre of the four connector bolts; the PC90 front view has the "
+            "same point (54 from the inlet, 5.5 below the pipe centreline), so the trap snaps on. Built from the TI's end "
+            "view (D, the flange face): the body (C 64) is in front and hides the spigot, the top bolt holes and the "
+            "middle of the flange; the flange outline (D 67) and the lower bolt holes show around it. The TI does not "
+            "draw the trap from this side, so the end of the body is drawn as a plain circle. Bolt spacing 44.9 on the "
+            "TI drawing against 44.6 on the PC90's: within drawing accuracy. "
+            "Side view: " + N_90 + "Length A (connector face to the end of the body), height B (top of the body to the bottom of the "
             "flange) and body diameter C are from the TI table; the TI drawing is about 5% longer than it is tall, so "
             "x and y are set separately. Withdrawal distances E (80, connector bolts) and F (85, cap screws and screen) "
             "are not drawn.",
@@ -369,15 +377,61 @@ DATA["USM90"] = {
 DATA["UTDS90"] = {
     "name": "UTDS90", "type": "Thermodynamic with strainer, stainless, for PC90 4-bolt connector", "ti": "TI-P804-01",
     "sizes": {"UTDS90": dict(A=94, B=64, C=67, D=119)}, "variants": ["-"], "sizeLabel": "Model",
-    "note": N_90 + "Overall length D (connector face to the end of the body) and flange height C are from the TI table; "
+    "note": "Side view only: TI-P804-01 has no view of the trap from the front of the connector, so there is no "
+            "front view to snap onto the PC90 yet. " + N_90 + "Overall length D (connector face to the end of the body) and flange height C are from the TI table; "
             "body length A comes out at about 94.5. The TI drawing is not to scale: B (top of the cap screws to the "
             "spigot centre) and C cannot both be met at one vertical scale, so the part above the flange is stretched "
             "to make B 64. Withdrawal distances E (80), F (85) and G (30) are not drawn.",
 }
 
 
+def _usm90_front(self):
+    """TI-P805-01 p4 end view D (flange face), turned into the view from the front of the PC90: body circle in front,
+    flange outline and holes only where outside it. Origin at the centre of the four bolt holes."""
+    lw = 0.6
+    ch = [c for c in _chains(USM90_PDF, 4, (212, 395, 290, 478), max_lw=1.0) if c[2] < 0.9]
+    xl, xr, hc = 218.42, 283.02, (250.74, 445.77)          # flange sides, bolt hole centre
+    k = (self.d["D"] - lw) / (xr - xl)
+    r = self.d["C"] / 2 - lw / 2
+    cy = (432.33 - hc[1]) * k                              # body centre, above the bolt centre (TI: body top 401.27)
+    f = lambda p: ((p[0] - hc[0]) * k, (p[1] - hc[1]) * k)
+
+    def outside(segs):                                     # parts of a traced chain not hidden by the body
+        out = []
+        for sg in segs:
+            P = np.array([f(p) for p in T.flat(sg)])
+            vis = np.hypot(P[:, 0], P[:, 1] - cy) > r + lw / 2
+            run = []
+            for p, v in zip(P, vis):
+                if v:
+                    run.append(tuple(p))
+                else:
+                    if len(run) > 1:
+                        out.extend(T.polyline(run))
+                    run = []
+            if len(run) > 1:
+                out.extend(T.polyline(run))
+        return out
+    parts, hidden = [T.circle(0.0, cy, r)], []
+    for _, segs, _, _ in ch:
+        b = _bb(segs)
+        w, h = b[2] - b[0], b[3] - b[1]
+        flange = (abs(w - 15.47) < 0.2 and abs(h - 15.47) < 0.2) or (abs(w - 33.66) < 0.2 and abs(h - 3.96) < 0.2) \
+            or (abs(w - 3.96) < 0.2 and abs(h - 33.66) < 0.2)
+        hole = abs(w - 7.66) < 0.1 and abs(h - 7.7) < 0.1
+        if flange or hole:
+            o = outside(segs)
+            if o:
+                parts.append(o)
+            if flange:
+                hidden.append(_mapped(segs, f))             # whole flange outline closes the silhouette
+    _finish(self, parts, lw, {"trap": (0.0, 0.0)}, k, hidden=hidden)
+
+
 def _usm90(self):
     """TI-P805-01 p4 side view. x to A (face to the dome end), y to B (top of the body to the bottom of the flange)."""
+    if self.variant.startswith("Front"):
+        return _usm90_front(self)
     A, B = self.d["A"], self.d["B"]
     lw = 0.6
     ch = _chains(USM90_PDF, 4, (72, 398, 184, 481), max_lw=1.0)

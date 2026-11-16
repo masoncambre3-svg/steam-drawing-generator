@@ -86,7 +86,6 @@
     "PC4000",
     "PC90",
     "PC90-BW",
-    "PC90-SIDE",
     "UPC-STR",
     "UPC-ST"
    ],
@@ -112,8 +111,7 @@
      "name": "4-bolt connectors",
      "products": [
       "PC90",
-      "PC90-BW",
-      "PC90-SIDE"
+      "PC90-BW"
      ]
     }
    ]

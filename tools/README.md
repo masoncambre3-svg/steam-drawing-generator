@@ -219,10 +219,20 @@ previews. apptest.py also needs `playwright` and Chrome.
   - PC90 side view removed (Mason doesn't need side views yet). `_pc90side` is still in connectors.py.
   - USM90 "Front view, on connector": built from TI view D (flange face) as seen from the other side: body circle
     C 64 in front, flange outline D 67 and lower holes only outside it. Height comes out 79.3 against B 79.
-  - Still to do (TI sheets not in the session): front views for UFT32 (TI-P146-05), UFT14HC (TI-P712-01), UBP32
-    (TI-P127-01), UTDS46M (TI-P187-03), UTD52L, UIB30 / UIB45 (TI-P113-01 / -03); trap points on STS17.2 (TI-P128-22),
-    universal strainer / straight connectors (TI-P127-03-US, 2-bolt centre); PC4000 front view (TI-P128-33).
-    UTDS90's TI has no front view of the trap at all.
+  - Later the same day:
+    - PC4000 / PC4001 / PC40: front view, handwheels facing you, trap on the back. Traced from TI-P128-33 page 1
+      (one illustration per model, same scale, three-quarter view), scaled by handwheel G 95 (0.779 mm/pt). In / out
+      160 apart at hub height is an estimate (no face to face on the TI). Trap point in the middle is a "behind" port.
+    - "Behind" ports: a port key ending " behind" in a tracer makes make_packs write `behind: [index]` on the symbol;
+      the app (`behindIds` / `backFirst` in app.js) draws anything snapped to that point before the connector.
+    - UBP32 is now its round end view only (TI-P127-01 p4, plate C 68, screws 50.3 apart, origin at the screw centre).
+    - Universal straight / strainer connectors have a trap point at the centre of their two trap bolts
+      (`UPC_BOLTS`, found by raster, mapped through `_upc_map.f`). Straight: bolts vertical, 51.3 apart (turn UBP32
+      90 degrees). Strainer: bolt line at about 55 degrees, which 90 degree turns cannot match.
+    - UTDS90 "Front view, on connector" is BUILT, not traced (its TI has no such view): heights from the side view,
+      USM90's 4-bolt flange, widths across assumed (cap 64, body 54, strainer housing 40, screw rows 40 apart).
+  - Still to do: front views for UFT32 (TI-P146-05), UFT14HC (TI-P712-01), UTDS46M (TI-P187-03), UTD52L, UIB30 /
+    UIB45 (TI-P113-01 / -03); a trap point on STS17.2 (TI-P128-22).
   - Test a new pair with /tmp-style playwright: add the connector, add the trap a few mm off the trap point, check
     portsOf(trap)[0] equals portsOf(connector)[2]; then drop the connector on pipes both ways (applyInline).
 

@@ -111,13 +111,13 @@ def _sts(self):
     _finish(self, parts, lw, {"in": (0.0, 0.0), "out": (float(A), 0.0)}, k, px=10)
 
 
-PC_NOTE = ("Side view (the TI's 'horizontal application' drawing): the pipe runs into the page, so in and out are the "
-           "same point, at the centre of the inlet. The trap unit bolts to the connector face on the left; that is the "
-           "third connection point, on the pipe centreline. Body height A 72 with the pipe centreline at B 36 from "
-           "the bottom, bypass valve 45 above the body and depressurisation valve 34 below it (both closed), as the "
-           "TI gives them; the valves are stretched slightly to hit those. Handwheel closed. The TI draws the PC4001; "
-           "PC4000 is the same without the bypass valve, and PC40 is drawn here as the same body without either "
-           "valve (its own TI drawing is a part view). Both sizes have the same dimensions.")
+PC_NOTE = ("Front view, handwheels facing you, flow left to right, the trap face on the back. Traced from the TI's page 1 "
+           "drawing of each model (PC4001 with the bypass valve, PC4000, PC40), which is a three-quarter view rather "
+           "than a true elevation; scaled so the handwheel over its knobs is G 95. The TI gives no face to face: in and "
+           "out are taken as 160 apart, at the handwheel hub height (the pipe centreline on the TI's side view). The "
+           "third connection point is the trap face, in the middle on the pipe centreline: a trap snapped there is "
+           "drawn behind the connector. The customer's line drain tube on the PC4001 drawing is left out. Both sizes "
+           "are drawn the same.")
 DATA["PC4000"] = {
     "name": "PC4000 / PC4001 / PC40", "type": "Pipeline connector, two piston isolation valves", "ti": "TI-P128-33",
     "tracer": "pc", "sizes": {'1/2"': {}, '3/4"': {}}, "variants": ["PC4000", "PC4001", "PC40"], "variantLabel": "Model",
@@ -125,33 +125,44 @@ DATA["PC4000"] = {
 }
 
 
+# Front view, handwheels facing you, trap on the back (Mason, 2026-11-16). The only drawing of this side is the TI's
+# page 1 illustration (one per model, all at the same scale, a three-quarter view rather than a true elevation). It is
+# traced as drawn and scaled so the handwheel over its knobs is G 95. The pipe centreline is at the handwheel hub height
+# (the horizontal application view on p7 puts the hub on the inlet centreline). Face to face is not on the TI: the
+# outlet's end face in the illustration sits 80 from the middle, so in and out are taken as 160 apart. The trap face
+# is the third connection point, in the middle at the pipe centreline, marked "behind" so a trap snapped there is drawn
+# under the connector.
+PCF = {  # page 1: clip, right handwheel hub centre (pt)
+    "PC4001": dict(clip=(140, 205, 420, 410), hub=(353.0, 347.0)),
+    "PC4000": dict(clip=(140, 435, 420, 600), hub=(353.7, 523.5)),
+    "PC40": dict(clip=(140, 615, 420, 770), hub=(350.05, 704.05)),
+}
+PCF_K = 95 / (584.4 - 462.5)          # PC4000 right handwheel, top knob to bottom knob = G 95
+PCF_HUBS = 159.95                     # hub to hub, pt (124 mm)
+PCF_L = 160.0                         # face to face, mm (estimated, see above)
+
+
 def _pc(self):
-    """TI-P128-33 p7, horizontal application view of the PC4001."""
-    A, B, BY, DP = 72, 36, 45, 34
-    self.d = dict(A=A, B=B)
-    if self.variant == "PC4001":
-        self.d["Bypass valve above body (closed)"] = BY
-    if self.variant != "PC40":
-        self.d["Depressurisation valve below body (closed)"] = DP
+    """TI-P128-33 p1 illustration of the model, handwheels facing out of the page."""
+    V = PCF[self.variant]
     lw = 0.5
-    ch = _chains(PC4000_PDF, 7, (99, 120, 221, 266), drop=[(99.5, 197.3, 101.0, 197.8)], max_lw=1.0)
-    xc, yc, top, bot, bytop, dpbot, face = 122.07, 197.55, 162.82, 231.30, 122.55, 265.37, 99.88
-    k = (A - lw) / (bot - top)
-    ysrc = [bytop, top, yc, bot, dpbot]
-    ydst = [-(A - B) - BY + lw / 2, -(A - B) + lw / 2, 0.0, B - lw / 2, B + DP - lw / 2]
-    f = lambda p: ((p[0] - xc) * k, _pw(p[1], ysrc, ydst))
+    k = PCF_K
+    xc, yc = V["hub"][0] - PCF_HUBS / 2, V["hub"][1]
+    f = lambda p: ((p[0] - xc) * k + PCF_L / 2, (p[1] - yc) * k)
     parts = []
-    for _, segs, grey, _ in ch:
+    for _, segs, grey, _ in _chains(PC4000_PDF, 1, V["clip"], max_lw=2.0):
         x0, y0, x1, y1 = _bb(segs)
-        if grey < 0.05 and x0 > 104 and x1 < 140 and y0 > 164 and y1 < 192:
-            continue                                     # black strokes the TI hides under the white body (a copy of the bypass valve)
-        if y1 < 162.0 and x1 < 152 and self.variant != "PC4001":
-            continue                                     # bypass valve
-        if y0 >= 231.0 and x1 < 132 and self.variant == "PC40":
-            continue                                     # depressurisation valve
+        w, h = x1 - x0, y1 - y0
+        if grey > 0.9 or x1 < 152 or x0 > 407:
+            continue                                     # white fills, flow arrows
+        if (h < 1.0 and w > 15) or (w < 2 and h < 2):
+            continue                                     # leader lines and their dots
+        if self.variant == "PC4001" and ((w < 0.3 and (abs(x0 - 177.8) < 0.3 or abs(x0 - 185.85) < 0.3))
+                                         or (grey < 0.05 and x1 <= 194.7 and y0 >= 225)):
+            continue                                     # customer's line drain tube (drawn out of position on the TI)
         parts.append(_mapped(segs, f))
-    xf = (face - xc) * k - lw / 2
-    _finish(self, parts, lw, {"in": (0.0, 0.0), "out": (0.0, 0.0), "trap": (xf, 0.0)}, k)
+    self.d = {"Handwheel G": 95, "Face to face (estimated)": PCF_L}
+    _finish(self, parts, lw, {"in": (0.0, 0.0), "out": (PCF_L, 0.0), "trap behind": (PCF_L / 2, 0.0)}, k, close=8)
 
 
 # ---------------------------------------------------------------- PC90 4-bolt connector (TI-P806-01), added 2026-11-16
@@ -318,6 +329,12 @@ UPC_V = {
     "Left hand, plug": dict(clip=(252, 196, 306, 259), drop=[], leader=(270.5, 252, 307, 258.5), flow=-1, m=(269.5, 287.22), band=(203.98, 222.46)),
     "Left hand, blowdown valve": dict(clip=(350, 194, 405, 276), drop=[], flow=-1, m=(368.07, 385.9), band=(202.71, 221.2)),
 }
+# Centres of the two trap bolt holes on each p3 view (found by raster), pt. Their midpoint is the trap point.
+UPC_BOLTS = {"Right hand, plug": ((280.42, 88.62), (296.54, 111.58)),
+             "Right hand, blowdown valve": ((378.29, 87.38), (394.42, 110.33)),
+             "Left hand, plug": ((278.42, 206.62), (262.21, 229.75)),
+             "Left hand, blowdown valve": ((377.08, 205.33), (360.75, 228.5)),
+             "straight": ((343.67, 503.21), (343.67, 534.96))}
 UPC_STR = dict(clip=(322, 496, 365, 543), drop=[(321, 495, 325, 500.5), (361, 495, 366, 500.5)], m=(328.5, 359.0))
 IN = 25.4
 
@@ -364,6 +381,7 @@ def _upc_map(ch, A, Bv, V, straight=False):
             X = w * X + (1 - w) * Xm(x)
         return X, (y - yc) * k
     parts = [_mapped(segs, f) for _, segs, grey, _ in ch if grey < 0.9]
+    _upc_map.f = f                                      # for the trap point (bolt centre), mapped the same way
     return parts, k, (xl, xr, yc)
 
 
@@ -378,14 +396,17 @@ def _upc(self):
         inside = lambda bb: bb[0] >= L[0] and bb[2] <= L[2] and bb[1] >= L[1] and bb[3] <= L[3]
         ch = [c for c in ch if not (inside(_bb(c[1])) and _bb(c[1])[2] - _bb(c[1])[0] > 4.5)]
     parts, k, _ = _upc_map(ch, A, Bv, V)
+    (ax, ay), (bx, by) = [_upc_map.f(p) for p in UPC_BOLTS[self.variant]]
+    tx, ty = (ax + bx) / 2, (ay + by) / 2              # trap point: centre of the two trap bolts
     if V["flow"] < 0:                                  # left hand: inlet is the right end, outlet A to the left
         parts = [_mapped(p, lambda q: (q[0] - A, q[1])) for p in parts]
-        ports = {"in": (0.0, 0.0), "out": (-float(A), 0.0)}
+        ports = {"in": (0.0, 0.0), "out": (-float(A), 0.0), "trap": (round(tx - A, 2), round(ty, 2))}
     else:
-        ports = {"in": (0.0, 0.0), "out": (float(A), 0.0)}
+        ports = {"in": (0.0, 0.0), "out": (float(A), 0.0), "trap": (round(tx, 2), round(ty, 2))}
+    self.d["Trap bolt spacing (drawn)"] = round(float(np.hypot(bx - ax, by - ay)), 1)
     Q = np.vstack([T.flat(sg) for p in parts for sg in p])
     c_drawn = (Q[:, 0].max() if V["flow"] > 0 else -Q[:, 0].min())
-    self.d = {"A": A, "B": Bv, "C": Cv, "E": 20}
+    self.d = {"A": A, "B": Bv, "C": Cv, "E": 20, "Trap bolt spacing (drawn)": self.d["Trap bolt spacing (drawn)"]}
     lw = 0.5
     _finish(self, parts, lw, ports, k, close=10)
     # C on the TI runs from the inlet face to the far side of the plug / valve end; report what the drawing gives
@@ -398,10 +419,14 @@ def _upcs(self):
     A, Bv = self.d["A"], self.d["B"]
     ch = _chains(UPC_PDF, 3, UPC_STR["clip"], drop=UPC_STR["drop"], max_lw=1.0)
     parts, k, _ = _upc_map(ch, A, Bv, UPC_STR, straight=True)
-    _finish(self, parts, 0.5, {"in": (0.0, 0.0), "out": (float(A), 0.0)}, k, close=10)
+    (ax, ay), (bx, by) = [_upc_map.f(p) for p in UPC_BOLTS["straight"]]
+    self.d["Trap bolt spacing (drawn)"] = round(float(np.hypot(bx - ax, by - ay)), 1)
+    _finish(self, parts, 0.5, {"in": (0.0, 0.0), "out": (float(A), 0.0),
+                               "trap": (round((ax + bx) / 2, 2), round((ay + by) / 2, 2))}, k, close=10)
 
 
-_UPCN = ("Front view as the TI draws it, the trap face looking out of the page. NPT and SW connectors have the same "
+_UPCN = ("Front view as the TI draws it, the trap face looking out of the page. The third connection point is the "
+         "centre of the two trap bolts, where a trap's front view (UBP32) snaps on. NPT and SW connectors have the same "
          "outline. The drawings are to scale for 1/2\"; for the other sizes the scale is set from B and the end blocks "
          "stretch to make A, so the strainer, lug and mounting ears keep their shape. ")
 DATA["UPC-STR"] = {

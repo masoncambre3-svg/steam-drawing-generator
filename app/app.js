@@ -316,11 +316,19 @@ function pipeLabel(it) {
   if (it.len) lens.forEach((l, i) => { if (l >= fs * 2) o += along(i, fmtLen(l), -1); });
   return o;
 }
+// A product snapped to a connection its pack marks "behind" (a trap on the back of a PC4000) is drawn under that product.
+function behindIds(items) {
+  const bp = [], out = new Set();
+  for (const it of items) if (it.type === "sym" && valid(it)) { const s = symOf(it); if (s.behind) { const T = symXform(it); s.behind.forEach(i => bp.push([it.id, T(s.ports[i])])); } }
+  if (bp.length) for (const it of items) if (it.type === "sym" && valid(it) && portsOf(it).some(p => bp.some(([id, q]) => id !== it.id && Math.hypot(q[0] - p[0], q[1] - p[1]) < 0.5))) out.add(it.id);
+  return out;
+}
+const backFirst = items => { const b = behindIds(items); return b.size ? [...items.filter(i => b.has(i.id)), ...items.filter(i => !b.has(i.id))] : items; };
 function renderAll() {
-  const live = doc.items.filter(valid), pipes = live.filter(i => i.type === "pipe"), rest = live.filter(i => i.type !== "pipe");
+  const live = doc.items.filter(valid), pipes = live.filter(i => i.type === "pipe"), rest = backFirst(live.filter(i => i.type !== "pipe"));
   return pipes.map(pipeOutline).join("") + pipes.map(pipeBody).join("") + rest.map(itemSvg).join("") + pipes.map(pipeLabel).join("") + renderSheet();
 }
-const ordered = () => [...doc.items.filter(i => i.type === "pipe"), ...doc.items.filter(i => i.type !== "pipe")].filter(valid);
+const ordered = () => [...doc.items.filter(i => i.type === "pipe"), ...backFirst(doc.items.filter(i => i.type !== "pipe"))].filter(valid);
 
 // ---------------------------------------------------------------- view
 function viewSize() { const r = $("cv").getBoundingClientRect(); return [Math.max(r.width, 50), Math.max(r.height, 50)]; }

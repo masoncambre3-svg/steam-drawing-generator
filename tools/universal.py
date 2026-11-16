@@ -79,8 +79,13 @@ DATA["UFT14HC"] = {
 DATA["UBP32"] = {
     "name": "UBP32", "type": "Balanced pressure, sealed stainless, for pipeline connectors", "ti": "TI-P127-01",
     "sizes": {"UBP32": dict(A=35, B=33, C=68, D=42.5)}, "variants": ["-"], "sizeLabel": "Model",
-    "note": N_UNIT + "Side view. The TI drawing is not to scale (across the pipe it is about 8% shorter than along "
-            "it), so length B, overall height C, capsule housing D and spigot A are each set from the table.",
+    "note": "Front view: the trap as seen from the front of its connector, the TI's round view. The plate (C 68) is "
+            "behind, the capsule housing (D 42.5, drawn 42.6) in front, and the two connector screws level with the "
+            "plate centre, 50.7 apart. The connection point is the centre of the two screws, which matches the trap "
+            "point on the universal straight and strainer connectors: drag it onto the connector and it snaps there. "
+            "On the straight connector the screws run up and down, so turn the trap 90 degrees; on the strainer "
+            "connector they run at about 55 degrees, which the app's 90 degree turns cannot match. The side view "
+            "(A, B) is not drawn.",
 }
 DATA["UTDS46M"] = {
     "name": "UTDS46M", "type": "Thermodynamic with strainer, for pipeline connectors", "ti": "TI-P187-03",
@@ -200,25 +205,17 @@ def _uft14hc(self):
 
 
 def _ubp32(self):
-    """TI-P127-01 p4 side view. x to B; y piecewise: plate to C, capsule housing to D; spigot scaled to A."""
-    A, B, C, D = self.d["A"], self.d["B"], self.d["C"], self.d["D"]
+    """TI-P127-01 p4 end view: the trap as seen from the front of its connector (Mason, 2026-11-16). Plate C 68 round,
+    capsule housing D in front of it, two connector screw ears level with the plate centre. Origin at the centre of the
+    two screws (= plate centre = spigot), which is the trap point on the connectors."""
+    C = self.d["C"]
     lw = 0.6
-    ch = _chains(UBP32_PDF, 4, (210.5, 70, 261, 179), max_lw=1.0)
-    xa, xb = 211.79, 259.84                          # spigot face, back of the capsule housing
-    yc, pt, pb, ht, hb = 124.575, 71.24, 177.92, 74.12, 141.23
-    sx = (B - lw) / (xb - xa)
-    ky = (C - lw) / (pb - pt)
-    yht = -(C - lw) / 2 + (ht - pt) * ky
-    src, dst = [pt, ht, hb, pb], [-(C - lw) / 2, yht, yht + D - lw, (C - lw) / 2]
-    ka = (A - lw) / (148.82 - 100.33)
-    parts = []
-    for _, segs, _, _ in ch:
-        x0, y0, x1, y1 = _bb(segs)
-        if x1 < 214.5 and y0 > 99:                   # the spigot: its own height A
-            parts.append(_mapped(segs, lambda p: ((p[0] - xa) * sx + lw / 2, (p[1] - yc) * ka)))
-        else:
-            parts.append(_mapped(segs, lambda p: ((p[0] - xa) * sx + lw / 2, _pw(p[1], src, dst))))
-    _finish(self, parts, lw, {"in": (0.0, 0.0)}, sx)
+    ch = [c for c in _chains(UBP32_PDF, 4, (290, 50, 412, 178), max_lw=2.0) if c[2] < 0.9]
+    x0, x1, xc, yc = 296.57, 404.59, 350.58, 124.51      # plate circle, screw centre
+    k = (C - lw) / (x1 - x0)
+    _finish(self, [_mapped(segs, lambda p: ((p[0] - xc) * k, (p[1] - yc) * k)) for _, segs, _, _ in ch], lw,
+            {"trap": (0.0, 0.0)}, k)
+    self.d = dict(self.d, **{"Screw spacing (drawn)": round((390.88 - 310.28 + 0) * k, 1)})
 
 
 def _utds46m(self):
@@ -376,9 +373,14 @@ DATA["USM90"] = {
 }
 DATA["UTDS90"] = {
     "name": "UTDS90", "type": "Thermodynamic with strainer, stainless, for PC90 4-bolt connector", "ti": "TI-P804-01",
-    "sizes": {"UTDS90": dict(A=94, B=64, C=67, D=119)}, "variants": ["-"], "sizeLabel": "Model",
-    "note": "Side view only: TI-P804-01 has no view of the trap from the front of the connector, so there is no "
-            "front view to snap onto the PC90 yet. " + N_90 + "Overall length D (connector face to the end of the body) and flange height C are from the TI table; "
+    "sizes": {"UTDS90": dict(A=94, B=64, C=67, D=119)}, "variants": ["Front view, on connector", "Side view"],
+    "sizeLabel": "Model", "variantLabel": "View",
+    "note": "Front view, on connector: TI-P804-01 does not draw the trap from this side, so this view is a best guess "
+            "built from the side view. Heights (top of the cap screws 63 above the spigot as B 64 gives, cap plate, "
+            "body, strainer housing) are the side view's. The 4-bolt flange (C 67) is USM90's, since both bolt to the "
+            "PC90. Widths across are NOT on the TI and are assumed: cap plate 64, body 54, strainer housing 40, two "
+            "rows of cap screws 40 apart. The connection point is the centre of the four connector bolts, so it snaps "
+            "onto the PC90 front view like USM90. Side view: " + N_90 + "Overall length D (connector face to the end of the body) and flange height C are from the TI table; "
             "body length A comes out at about 94.5. The TI drawing is not to scale: B (top of the cap screws to the "
             "spigot centre) and C cannot both be met at one vertical scale, so the part above the flange is stretched "
             "to make B 64. Withdrawal distances E (80), F (85) and G (30) are not drawn.",
@@ -442,8 +444,79 @@ def _usm90(self):
     _finish(self, [_mapped(segs, f) for _, segs, _, _ in ch], lw, {"in": (0.0, 0.0)}, sx)
 
 
+def _rrect(x0, y0, x1, y1, r):
+    """Rounded rectangle as one closed seg list (corner arcs as Beziers)."""
+    c = 0.5522847498 * r
+    return [("l", (x0 + r, y0), (x1 - r, y0)), ("c", (x1 - r, y0), (x1 - r + c, y0), (x1, y0 + r - c), (x1, y0 + r)),
+            ("l", (x1, y0 + r), (x1, y1 - r)), ("c", (x1, y1 - r), (x1, y1 - r + c), (x1 - r + c, y1), (x1 - r, y1)),
+            ("l", (x1 - r, y1), (x0 + r, y1)), ("c", (x0 + r, y1), (x0 + r - c, y1), (x0, y1 - r + c), (x0, y1 - r)),
+            ("l", (x0, y1 - r), (x0, y0 + r)), ("c", (x0, y0 + r), (x0, y0 + r - c), (x0 + r - c, y0), (x0 + r, y0))]
+
+
+def _hexnut(cx, yb, w, h):
+    """Hex nut seen across the corners from the side: outline and the two visible edges between flats."""
+    return [T.polyline([(cx - w / 2, yb), (cx - w / 2, yb - h), (cx + w / 2, yb - h), (cx + w / 2, yb)], closed=True),
+            T.polyline([(cx - w / 4, yb), (cx - w / 4, yb - h)]), T.polyline([(cx + w / 4, yb), (cx + w / 4, yb - h)])]
+
+
+def _utds90_front(self):
+    """Front view, as for USM90: the trap seen from the front of the PC90, sitting over it. TI-P804-01 draws no such
+    view, so it is built (Mason asked for a best guess, 2026-11-16). Heights are the side view's, mapped as _utds90
+    maps them, measured from the spigot (= the 4-bolt centre, the trap point). The flange is USM90's 4-bolt flange
+    (TI-P805-01 view D, 67 square; UTDS90's flange C is 67 and bolts to the same PC90). Widths across are not on the
+    TI and are assumed: cap plate 64, body 54, strainer housing 40, two rows of cap screws 40 apart."""
+    lw = 0.6
+    # heights from the side view (mm, + down, origin at the spigot centre)
+    nut_top, cap_top, cap_bot, body_top, body_bot, str_bot = -63.1, -49.1, -28.4, -23.3, -2.6, 14.6
+    front = [(-32.0, cap_top, 32.0, cap_bot, 4.0), (-27.0, body_top, 27.0, body_bot, 2.0), (-20.0, body_bot, 20.0, str_bot, 6.0)]
+    parts = [_rrect(*r) for r in front]
+    for sx in (-20.0, 20.0):
+        parts.append(T.polyline([(sx - 3.5, cap_bot), (sx - 3.5, body_top)]) + T.polyline([(sx + 3.5, cap_bot), (sx + 3.5, body_top)]))
+        parts += _hexnut(sx, cap_top, 19.0, 10.0)
+        parts.append(T.polyline([(sx - 5, cap_top - 10.0), (sx - 5, nut_top), (sx + 5, nut_top), (sx + 5, cap_top - 10.0)]))
+    # flange behind: USM90's view D outline and holes, only where no front part covers it
+    ch = [c for c in _chains(USM90_PDF, 4, (212, 395, 290, 478), max_lw=1.0) if c[2] < 0.9]
+    xl, xr, hc = 218.42, 283.02, (250.74, 445.77)
+    k = (self.d["C"] - lw) / (xr - xl)
+    f = lambda p: ((p[0] - hc[0]) * k, (p[1] - hc[1]) * k)
+    cover = [(x0 - lw, y0 - lw, x1 + lw, y1 + lw) for x0, y0, x1, y1, _ in front] + \
+            [(sx - 3.5 - lw, cap_bot, sx + 3.5 + lw, body_top) for sx in (-20.0, 20.0)]
+    hid = lambda q: any(a <= q[0] <= c and b <= q[1] <= d for a, b, c, d in cover)
+    hidden = []
+    for _, segs, _, _ in ch:
+        b = _bb(segs)
+        w, h = b[2] - b[0], b[3] - b[1]
+        flange = (abs(w - 15.47) < 0.2 and abs(h - 15.47) < 0.2) or (abs(w - 33.66) < 0.2 and abs(h - 3.96) < 0.2) \
+            or (abs(w - 3.96) < 0.2 and abs(h - 33.66) < 0.2)
+        hole = abs(w - 7.66) < 0.1 and abs(h - 7.7) < 0.1
+        if not (flange or hole):
+            continue
+        out = []
+        for sg in segs:
+            P = np.array([f(p) for p in T.flat(sg)])
+            if len(P) == 2:                                   # straight line: split finely so it can be cut
+                P = np.linspace(P[0], P[1], 60)
+            run = []
+            for p in P:
+                if not hid(p):
+                    run.append(tuple(p))
+                else:
+                    if len(run) > 1:
+                        out.extend(T.polyline(run))
+                    run = []
+            if len(run) > 1:
+                out.extend(T.polyline(run))
+        if out:
+            parts.append(out)
+        if flange:
+            hidden.append(_mapped(segs, f))
+    _finish(self, parts, lw, {"trap": (0.0, 0.0)}, k, hidden=hidden)
+
+
 def _utds90(self):
     """TI-P804-01 p4 side view. x to D (face to the end of the body); y piecewise: flange to C, top to B."""
+    if self.variant.startswith("Front"):
+        return _utds90_front(self)
     B, C, D = self.d["B"], self.d["C"], self.d["D"]
     lw = 0.6
     ch = _chains(UTDS90_PDF, 4, (118, 428, 252, 537), max_lw=1.0)

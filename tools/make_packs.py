@@ -13,6 +13,7 @@ A symbol is in millimetres, origin at the inlet connection on the pipe centrelin
     arrow   [polygon points, line width] or null
     dims    the TI table row for that size
     ports   connection points [[x, y], ...]; a third value is a direction in degrees (strainer drain)
+    behind  optional: indexes into ports; a product snapped to one of them is drawn under this one (port key "... behind")
 """
 import json, os, subprocess, sys
 
@@ -52,11 +53,17 @@ def parts(s, arrow_spec=None, dec=2):
     ports = [[round(float(v), 2) for v in s.ports[k]] for k in ("in", "out") if k in s.ports]
     if "drain" in s.ports:
         ports.append([round(float(v), 2) for v in s.ports["drain"]] + [round(float(s.drain_angle), 1)])
+    behind = []
     for k in s.ports:                                   # any other connections (motive, exhaust, ...)
         if k not in ("in", "out", "drain"):
+            if k.endswith(" behind"):                   # what snaps here is drawn under this product (trap on the back)
+                behind.append(len(ports))
             ports.append([round(float(v), 2) for v in s.ports[k]])
-    return dict(box=[round(float(v), 2) for v in (s.x0, s.y0, s.w, s.h)], fill=fill, strokes=strokes, arrow=arrow,
-                dims={k: v for k, v in s.d.items() if k != "size"}, ports=ports)
+    out = dict(box=[round(float(v), 2) for v in (s.x0, s.y0, s.w, s.h)], fill=fill, strokes=strokes, arrow=arrow,
+               dims={k: v for k, v in s.d.items() if k != "size"}, ports=ports)
+    if behind:
+        out["behind"] = behind
+    return out
 
 
 def preview(sym, path):

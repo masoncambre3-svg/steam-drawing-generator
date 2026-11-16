@@ -61,6 +61,13 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
   A pipe you move or edit yourself is left where you put it. Changing a run length moves a product on the far end.
 - Drop onto a pipe: drag a trap, strainer, valve, reducer or tee onto a pipe run (it highlights), let go, and the
   pipe is cut and both sides connect. It faces the way the pipe was drawn; Mirror (M) turns it round.
+- Title block and parts list (side panel): tick "Border and title block" and fill in title, customer, site,
+  drawing no., rev, drawn by (remembered), date and notes, with the logo on or off. "Bill of materials on the
+  drawing" adds the parts table above the title block; "Item numbers on products" adds numbered balloons that
+  match it. The block goes beside or under the drawing, whichever makes a page closer to letter, and is included
+  in Copy image, PNG and SVG. Everything is saved with the drawing.
+- "Bill of materials list" opens the list on its own: one line per model, size and connection with a count, pipe
+  totals by size and schedule (rounded up to the next foot), equipment optional. Copy for Excel or download a CSV.
 - Press ? (or the ? button at the end of the toolbar) for the list of keyboard shortcuts.
 - Copy and paste: Ctrl+C / Ctrl+X / Ctrl+V (or the Copy and Paste buttons) work across drawings, projects and tabs
   in the same browser. Paste lands in the middle of the view.

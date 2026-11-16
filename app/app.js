@@ -72,7 +72,7 @@ const PRESETS = [["Blue", "#3f86dc"], ["Navy", "#1f3f73"], ["Steel grey", "#8d99
                  ["Orange", "#e58a2b"], ["Yellow", "#e9c53c"], ["Green", "#3f9a5f"], ["White", "#f2f4f7"]];
 const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
-const BUILD = "12";
+const BUILD = "13";
 const LOGO = window.SDG_LOGO || null;                       // vector Spirax Sarco logo, app/logo.js
 const STYLE0 = { shade: true, blackLines: false, units: "ftin", prec: 1 };
 const UNITS = [["ftin", "ft-in"], ["in", "in"], ["mm", "mm"]];
@@ -80,7 +80,10 @@ const PRECS = [[1, '1"'], [0.5, '1/2"'], [0.0625, '1/16"']];     // what ft-in a
 const LOGO_POS = [["center", "On body"], ["above", "Above"], ["below", "Below"]];
 const LOGO_SIZE = { S: 0.3, M: 0.45, L: 0.65 };             // logo width as a share of the product's width
 
-let doc = { v: 1, style: Object.assign({}, STYLE0), items: [] };
+// Title block, border, bill of materials table and item numbers: per drawing, saved with it
+const SHEET0 = () => ({ frame: false, bom: false, nums: false, logo: true, pipe: true, equip: false, size: "M",
+  f: { title: "", customer: "", site: "", dwg: "", rev: "", by: "", date: "", notes: "" } });
+let doc = { v: 1, style: Object.assign({}, STYLE0), sheet: SHEET0(), items: [] };
 const ui = { tool: "select", sel: null, set: [], draft: null, cursor: null, view: { cx: 0, cy: 0, s: 1.6 },
   pick: { family: "Steam traps", product: "TD52", size: '3/4"', variant: "NPT", color: "#3f86dc", arrow: true, logo: false, logoPos: "center", logoSize: "M" },
   pipe: { nps: '3/4"', sch: 80, color: "#8d99a8", label: true, cut: false, len: false },
@@ -222,11 +225,17 @@ function bboxOf(it) {
   const m = 3;
   return [Math.min(it.a[0], it.b[0]) - m, Math.min(it.a[1], it.b[1]) - m, Math.max(it.a[0], it.b[0]) + m, Math.max(it.a[1], it.b[1]) + m];
 }
-function docBox(margin) {
+function rawBox() {                                       // the drawing itself, without the title block
   const live = doc.items.filter(valid);
   if (!live.length) return null;
   const b = live.map(bboxOf);
-  return [Math.min(...b.map(v => v[0])) - margin, Math.min(...b.map(v => v[1])) - margin, Math.max(...b.map(v => v[2])) + margin, Math.max(...b.map(v => v[3])) + margin];
+  return [Math.min(...b.map(v => v[0])), Math.min(...b.map(v => v[1])), Math.max(...b.map(v => v[2])), Math.max(...b.map(v => v[3]))];
+}
+function docBox(margin) {
+  const g = sheetGeom(), b = g ? g.content : rawBox(); if (!b) return null;
+  const o = [b[0] - margin, b[1] - margin, b[2] + margin, b[3] + margin];
+  if (g && g.frame) { const f = g.frame, m = doc.sheet.frame ? margin * 0.4 : margin; return [Math.min(o[0], f[0] - m), Math.min(o[1], f[1] - m), Math.max(o[2], f[2] + m), Math.max(o[3], f[3] + m)]; }
+  return o;
 }
 const valid = it => it.type !== "sym" || !!symOf(it);
 function pipePath(pts, nps) {
@@ -309,7 +318,7 @@ function pipeLabel(it) {
 }
 function renderAll() {
   const live = doc.items.filter(valid), pipes = live.filter(i => i.type === "pipe"), rest = live.filter(i => i.type !== "pipe");
-  return pipes.map(pipeOutline).join("") + pipes.map(pipeBody).join("") + rest.map(itemSvg).join("") + pipes.map(pipeLabel).join("");
+  return pipes.map(pipeOutline).join("") + pipes.map(pipeBody).join("") + rest.map(itemSvg).join("") + pipes.map(pipeLabel).join("") + renderSheet();
 }
 const ordered = () => [...doc.items.filter(i => i.type === "pipe"), ...doc.items.filter(i => i.type !== "pipe")].filter(valid);
 
@@ -616,7 +625,8 @@ function commit() {
 }
 function loadDoc(d) {
   if (!d || !Array.isArray(d.items)) throw new Error("bad file");
-  doc = { v: 1, style: Object.assign({}, STYLE0, d.style || {}), items: d.items.filter(i => i && ["sym", "pipe", "text", "arrow", "dim"].includes(i.type) && (i.type !== "pipe" || PIPE[i.nps])) };
+  const sh = Object.assign(SHEET0(), d.sheet || {}); sh.f = Object.assign(SHEET0().f, (d.sheet && d.sheet.f) || {});
+  doc = { v: 1, style: Object.assign({}, STYLE0, d.style || {}), sheet: sh, items: d.items.filter(i => i && ["sym", "pipe", "text", "arrow", "dim"].includes(i.type) && (i.type !== "pipe" || PIPE[i.nps])) };
   doc.items.forEach(i => { i.id = nextId++; });
   selectIds([]); ui.draft = null; takeSnap();
 }
@@ -808,6 +818,11 @@ function panel() {
     if (de) { draw(); clearTimeout(panel.t); panel.t = setTimeout(commit, 500); } };
   swatches($("dimColors"), dt.color, v => dset("color", v));
   $("dimMeta").textContent = de ? `Measures ${fmtLen(dimGeom(sel).L, "ftin")} · ${fmtLen(dimGeom(sel).L, "mm")}` : "";
+  const sh = doc.sheet;                                      // title block and parts list
+  $("shFrame").checked = sh.frame; $("shBom").checked = sh.bom; $("shNums").checked = sh.nums; $("shLogo").checked = sh.logo;
+  $("shPipe").checked = sh.pipe; $("shEquip").checked = sh.equip; $("shFields").hidden = !sh.frame; $("shLogoWrap").hidden = !LOGO;
+  for (const k of Object.keys(SHEET0().f)) { const inp = $("sh_" + k); if (document.activeElement !== inp) inp.value = sh.f[k] || ""; }
+  chipRow($("shSize"), Object.keys(SHEET_SIZE), sh.size, v => { sh.size = v; commit(); }, v => ({ S: "Small", M: "Medium", L: "Large" })[v]);
   chipRow($("units"), UNITS.map(u => u[0]), doc.style.units, v => { doc.style.units = v; commit(); }, v => UNITS.find(u => u[0] === v)[1]);
   $("precRow").hidden = doc.style.units === "mm";
   chipRow($("prec"), PRECS.map(p => p[0]), doc.style.prec, v => { doc.style.prec = v; commit(); }, v => PRECS.find(p => p[0] === v)[1]);
@@ -1329,6 +1344,176 @@ $("asmFile").addEventListener("change", e => {
   r.readAsText(f); e.target.value = "";
 });
 $("bCopy").addEventListener("click", () => copySel(false)); $("bPaste").addEventListener("click", paste);
+
+// ---------------------------------------------------------------- bill of materials
+// One line per product model, size and connection, with a count; pipe totals by size and schedule (rounded up to
+// the next whole foot, or 0.1 m); equipment optional (it is usually the customer's). Numbered in that order.
+function bomRows() {
+  const sh = doc.sheet, fam = LIB.families, prods = new Map(), eqs = new Map(), pipes = new Map(), NPS = Object.keys(PIPE);
+  for (const it of doc.items) {
+    if (it.type === "pipe" && sh.pipe) {
+      const k = `${it.nps}|${it.sch}`, L = it.pts.slice(1).reduce((n, p, j) => n + Math.hypot(p[0] - it.pts[j][0], p[1] - it.pts[j][1]), 0);
+      const r = pipes.get(k) || { kind: "pipe", name: "Pipe", desc: `Schedule ${it.sch}`, size: it.nps, conn: "", ti: "", len: 0, ord: [NPS.indexOf(it.nps), it.sch] };
+      r.len += L; pipes.set(k, r); continue;
+    }
+    if (it.type !== "sym" || !valid(it)) continue;
+    const q = LIB.products.find(p => p.id === it.product); if (!q) continue;
+    if (q.eq) {
+      if (!sh.equip) continue;
+      const dims = Object.entries(symOf(it).dims || {}).slice(0, 2).map(([k, v]) => `${k} ${fmtLen(v, null, 1)}`).join(", ");
+      const k = `${it.product}|${it.variant}|${dims}`, r = eqs.get(k) || { kind: "eq", name: q.name, desc: dims, size: "", conn: it.variant === "-" ? "" : it.variant, ti: "", qty: 0, ids: [], ord: [q.name] };
+      r.qty++; r.ids.push(it.id); eqs.set(k, r); continue;
+    }
+    const k = `${it.product}|${it.size}|${it.variant}`;
+    const r = prods.get(k) || { kind: "prod", name: q.name, desc: q.type, size: it.size === "-" ? "" : it.size, conn: it.variant === "-" ? "" : it.variant, ti: q.ti || "",
+      qty: 0, ids: [], ord: [fam.indexOf(q.family), q.name, q.sizes.indexOf(it.size), String(it.variant)] };
+    r.qty++; r.ids.push(it.id); prods.set(k, r);
+  }
+  const cmp = (a, b) => { for (let i = 0; i < a.ord.length; i++) { if (a.ord[i] < b.ord[i]) return -1; if (a.ord[i] > b.ord[i]) return 1; } return 0; };
+  const pq = r => doc.style.units === "mm" ? `${(Math.ceil(r.len / 100) / 10).toFixed(1)} m` : fmtLen(Math.ceil(r.len / 304.8 - 1e-6) * 304.8, "ftin", 1);
+  const rows = [...[...prods.values()].sort(cmp), ...[...pipes.values()].sort(cmp).map(r => Object.assign(r, { qty: pq(r) })), ...[...eqs.values()].sort(cmp)];
+  rows.forEach((r, i) => { r.n = i + 1; });
+  return rows;
+}
+const BOM_COLS = [["n", "Item"], ["qty", "Qty"], ["name", "Product"], ["desc", "Description"], ["size", "Size"], ["conn", "Connection"], ["ti", "TI sheet"]];
+function bomDialog() {
+  const rows = bomRows(), t = $("bomTable");
+  $("bomPipe").checked = doc.sheet.pipe; $("bomEquip").checked = doc.sheet.equip;
+  t.innerHTML = `<thead><tr>${BOM_COLS.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>` +
+    (rows.length ? rows.map(r => `<tr>${BOM_COLS.map(c => `<td>${esc(r[c[0]])}</td>`).join("")}</tr>`).join("") :
+      `<tr><td colspan="${BOM_COLS.length}" class="empty">No products on the drawing yet.</td></tr>`) + `</tbody>`;
+  $("bomCopy").disabled = $("bomCsv").disabled = !rows.length;
+  if (!$("bomDlg").open) $("bomDlg").showModal();
+}
+async function copyText(txt) {
+  try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(txt); return true; } } catch (e) {}
+  const ta = document.createElement("textarea"); ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0"; $("bomDlg").appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand("copy"); } catch (e) {} ta.remove(); return ok;
+}
+$("bomBtn").addEventListener("click", bomDialog);
+$("bomClose").addEventListener("click", () => $("bomDlg").close());
+$("bomPipe").addEventListener("change", e => { doc.sheet.pipe = e.target.checked; commit(); bomDialog(); });
+$("bomEquip").addEventListener("change", e => { doc.sheet.equip = e.target.checked; commit(); bomDialog(); });
+$("bomCopy").addEventListener("click", async () => {
+  const rows = bomRows(), txt = [BOM_COLS.map(c => c[1]), ...rows.map(r => BOM_COLS.map(c => String(r[c[0]]).replace(/\t|\n/g, " ")))].map(l => l.join("\t")).join("\n");
+  say(await copyText(txt) ? "Copied the bill of materials. Paste it into Excel, Word or an email." : "Copying is blocked in this view. Use Download CSV.", "ok");
+});
+$("bomCsv").addEventListener("click", () => {
+  const rows = bomRows(), q = v => /[",\n]/.test(v = String(v)) ? `"${v.replace(/"/g, '""')}"` : v;
+  const csv = [BOM_COLS.map(c => c[1]), ...rows.map(r => BOM_COLS.map(c => r[c[0]]))].map(l => l.map(q).join(",")).join("\r\n");
+  const base = (doc.sheet.f.dwg || doc.sheet.f.title || "steam-drawing").replace(/[^\w .-]+/g, "_").trim() || "steam-drawing";
+  save(`${base} BOM.csv`, async () => new Blob(["\ufeff" + csv], { type: "text/csv" }));
+});
+
+// ---------------------------------------------------------------- title block, border, BOM table, item numbers
+// Laid out from the drawing's own size: u is the text unit (mm). The block (BOM table over the title block) goes
+// to the right of the drawing or under it, whichever gives a page closer to letter (landscape or portrait). Nothing here is
+// selectable; it is all edited from the side panel and redrawn as the drawing changes.
+const SHEET_SIZE = { S: 0.8, M: 1, L: 1.25 };
+const BW = 32, BCOL = [2.4, 3.6, 6.2, 11.2, 3.6, 5.0];      // block width and BOM columns, in u
+function tbRows(u) {
+  const notes = doc.sheet.f.notes ? noteLines(doc.sheet.f.notes, 0.7 * u, (BW - 1) * u) : [];
+  return { h1: 3.4 * u, h2: 2.3 * u, notes, h4: notes.length ? 1.3 * u + notes.length * 1.0 * u : 0 };
+}
+function noteLines(txt, fs, w) {
+  const out = [];
+  for (const para of String(txt).split(/\n/)) {
+    let cur = "";
+    for (const wd of para.split(/\s+/).filter(Boolean)) { const t = cur ? cur + " " + wd : wd; if (t.length * 0.53 * fs > w && cur) { out.push(cur); cur = wd; } else cur = t; }
+    out.push(cur);
+  }
+  return out.slice(0, 8);
+}
+function sheetGeom() {
+  const sh = doc.sheet; if (!sh || !(sh.frame || sh.bom || sh.nums)) return null;
+  const base = rawBox(); if (!base) return null;
+  const u = Math.max(4, Math.min(160, Math.max(base[2] - base[0], base[3] - base[1]) / 85)) * (SHEET_SIZE[sh.size] || 1);
+  const rows = bomRows(), num = new Map(); rows.forEach(r => (r.ids || []).forEach(id => num.set(id, r.n)));
+  const c = base.slice(), balloons = [];
+  if (sh.nums) for (const it of doc.items) {
+    if (!num.has(it.id)) continue;
+    const b = bboxOf(it), r = 0.85 * u, cx = b[2] + 0.7 * u + r, cy = b[1] - 0.7 * u - r;
+    const mx = (b[0] + b[2]) / 2, my = (b[1] + b[3]) / 2;    // leader lands on the body, part way in from the corner
+    balloons.push({ n: num.get(it.id), cx, cy, r, at: [b[2] + (mx - b[2]) * 0.55, b[1] + (my - b[1]) * 0.55] });
+    c[0] = Math.min(c[0], cx - r); c[1] = Math.min(c[1], cy - r); c[2] = Math.max(c[2], cx + r); c[3] = Math.max(c[3], cy + r);
+  }
+  const g = { u, rows, balloons, content: c, frame: null };
+  if (!sh.frame && !sh.bom) return g;
+  const t = tbRows(u), bw = BW * u, bomH = sh.bom ? 1.9 * u + 1.5 * u + 1.55 * u * Math.max(1, rows.length) : 0;
+  const tbH = sh.frame ? t.h1 + 2 * t.h2 + t.h4 : 0, bh = bomH + tbH, m = 2.4 * u, gap = 2.5 * u;
+  const right = (() => { const x = c[2] + gap, y1 = Math.max(c[3], c[1] + bh); return { x, y: y1 - bh, f: [c[0] - m, Math.min(c[1], y1 - bh) - m, x + bw + m, y1 + m] }; })();
+  const below = (() => { const x = c[2] - bw, y = c[3] + gap; return { x, y, f: [Math.min(c[0], x) - m, c[1] - m, c[2] + m, y + bh + m] }; })();
+  const page = c[2] - c[0] >= c[3] - c[1] ? 11 / 8.5 : 8.5 / 11;   // landscape letter for wide drawings, portrait for tall
+  const fit = o => Math.abs(Math.log(((o.f[2] - o.f[0]) / (o.f[3] - o.f[1])) / page));
+  const pick = fit(right) <= fit(below) ? right : below;
+  return Object.assign(g, { frame: pick.f, bx: pick.x, by: pick.y, bw, bomH, tbH, t });
+}
+function renderSheet() {
+  const g = sheetGeom(); if (!g) return "";
+  const sh = doc.sheet, u = g.u, ink = "#13233b", mute = "#5b6b7f", lw = 0.07 * u, LW = 0.16 * u, f = v => +v.toFixed(2);
+  const T = (x, y, txt, fs, o = {}) => {                    // text, shrunk (then cut short) to fit a width
+    txt = String(txt || ""); if (!txt) return "";
+    const cw = o.bold ? 0.6 : 0.54; let s = fs;
+    if (o.w) { if (txt.length * cw * s > o.w) s = Math.max(fs * 0.72, o.w / (txt.length * cw)); while (txt.length > 2 && txt.length * cw * s > o.w) txt = txt.slice(0, -2) + "…"; }
+    return `<text x="${f(x)}" y="${f(y)}" font-size="${f(s)}" fill="${o.fill || ink}"${o.bold ? ' font-weight="700"' : ""}${o.anchor ? ` text-anchor="${o.anchor}"` : ""}>${esc(txt)}</text>`;
+  };
+  const L = (x1, y1, x2, y2, w) => `<path d="M${f(x1)},${f(y1)}L${f(x2)},${f(y2)}" stroke="${ink}" stroke-width="${f(w || lw)}"/>`;
+  const box = (x, y, w, h, wd) => `<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}" fill="#ffffff" stroke="${ink}" stroke-width="${f(wd || LW)}"/>`;
+  let o = `<g pointer-events="none" font-family="Arial, Helvetica, sans-serif">`;
+  for (const b of g.balloons) {
+    const dx = b.at[0] - b.cx, dy = b.at[1] - b.cy, d = Math.hypot(dx, dy) || 1;
+    o += L(b.cx + dx / d * b.r, b.cy + dy / d * b.r, b.at[0], b.at[1]) + `<circle cx="${f(b.at[0])}" cy="${f(b.at[1])}" r="${f(0.16 * u)}" fill="${ink}"/><circle cx="${f(b.cx)}" cy="${f(b.cy)}" r="${f(b.r)}" fill="#ffffff" stroke="${ink}" stroke-width="${f(lw * 1.4)}"/>` +
+      T(b.cx, b.cy + 0.33 * u, b.n, 0.95 * u, { bold: true, anchor: "middle" });
+  }
+  if (g.frame && sh.frame) { const F = g.frame; o += `<rect x="${f(F[0])}" y="${f(F[1])}" width="${f(F[2] - F[0])}" height="${f(F[3] - F[1])}" fill="none" stroke="${ink}" stroke-width="${f(LW)}"/>`; }
+  if (g.frame && sh.bom) {                                    // bill of materials table
+    let x = g.bx, y = g.by; const w = g.bw, rows = g.rows, xs = [x]; BCOL.forEach(cw => xs.push(xs[xs.length - 1] + cw * u));
+    o += box(x, y, w, g.bomH) + T(x + 0.5 * u, y + 1.3 * u, "BILL OF MATERIALS", 0.8 * u, { bold: true });
+    y += 1.9 * u; o += L(x, y, x + w, y, LW);
+    ["ITEM", "QTY", "PRODUCT", "DESCRIPTION", "SIZE", "CONNECTION"].forEach((h, i) => { o += T(xs[i] + 0.35 * u, y + 1.0 * u, h, 0.5 * u, { bold: true, fill: mute, w: BCOL[i] * u - 0.6 * u }); });
+    y += 1.5 * u; o += L(x, y, x + w, y);
+    if (!rows.length) o += T(x + 0.5 * u, y + 1.05 * u, "No products on the drawing yet", 0.7 * u, { fill: mute });
+    rows.forEach((r, j) => {
+      const yy = y + 1.55 * u * j, vals = [r.n, r.qty, r.name, r.desc, r.size, r.conn];
+      if (j) o += L(x, yy, x + w, yy);
+      vals.forEach((v, i) => { o += T(xs[i] + 0.35 * u, yy + 1.05 * u, v, 0.72 * u, { w: BCOL[i] * u - 0.6 * u, bold: i === 0 }); });
+    });
+    for (let i = 1; i < xs.length - 1; i++) o += L(xs[i], g.by + 1.9 * u, xs[i], g.by + g.bomH);
+  }
+  if (g.frame && sh.frame) {                                  // title block
+    const x = g.bx, w = g.bw, t = g.t, F = sh.f; let y = g.by + g.bomH;
+    o += box(x, y, w, g.tbH);
+    const cell = (cx, cy, cw, ch, label, val, big) => T(cx + 0.35 * u, cy + 0.8 * u, label, 0.46 * u, { fill: mute, bold: true, w: cw - 0.7 * u }) +
+      T(cx + 0.35 * u, cy + ch - (big ? 0.7 : 0.55) * u, val, (big ? 1.2 : 0.85) * u, { bold: big, w: cw - 0.7 * u });
+    const lw0 = sh.logo && LOGO ? 11 * u : 0;
+    if (lw0) { const k = Math.min((lw0 - 1.4 * u) / LOGO.w, (t.h1 - 1.2 * u) / LOGO.h), lx = x + (lw0 - LOGO.w * k) / 2, ly = y + (t.h1 - LOGO.h * k) / 2;
+      o += `<path d="${LOGO.d}" fill="${LOGO.color}" transform="translate(${f(lx)} ${f(ly)}) scale(${k.toFixed(5)})"/>` + L(x + lw0, y, x + lw0, y + t.h1); }
+    o += cell(x + lw0, y, w - lw0, t.h1, "DRAWING TITLE", F.title, true);
+    y += t.h1; o += L(x, y, x + w, y);
+    o += cell(x, y, w / 2, t.h2, "CUSTOMER", F.customer) + L(x + w / 2, y, x + w / 2, y + t.h2) + cell(x + w / 2, y, w / 2, t.h2, "SITE / UNIT", F.site);
+    y += t.h2; o += L(x, y, x + w, y);
+    let cx = x; [[11, "DRAWING NO.", F.dwg], [4, "REV", F.rev], [9, "DRAWN BY", F.by], [8, "DATE", F.date]].forEach(([cw, lab, v], i) => {
+      if (i) o += L(cx, y, cx, y + t.h2); o += cell(cx, y, cw * u, t.h2, lab, v); cx += cw * u; });
+    y += t.h2;
+    if (t.notes.length) { o += L(x, y, x + w, y) + T(x + 0.35 * u, y + 0.8 * u, "NOTES", 0.46 * u, { fill: mute, bold: true });
+      t.notes.forEach((ln, i) => { o += T(x + 0.35 * u, y + 1.75 * u + i * 1.0 * u, ln, 0.7 * u); }); }
+  }
+  return o + `</g>`;
+}
+
+// side panel wiring for the title block (values are filled in by panel())
+const todayStr = () => new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+[["shFrame", "frame"], ["shBom", "bom"], ["shNums", "nums"], ["shLogo", "logo"], ["shPipe", "pipe"], ["shEquip", "equip"]].forEach(([id, k]) =>
+  $(id).addEventListener("change", e => {
+    const sh = doc.sheet; sh[k] = e.target.checked;
+    if (k === "frame" && sh.frame) { if (!sh.f.date) sh.f.date = todayStr(); if (!sh.f.by) { try { sh.f.by = localStorage.getItem("sdg-by") || ""; } catch (err) {} } }
+    commit(); if (k === "frame" || k === "bom" || k === "nums") { fit(); draw(); }
+  }));
+for (const k of Object.keys(SHEET0().f)) $("sh_" + k).addEventListener("input", e => {
+  doc.sheet.f[k] = e.target.value; draw();
+  if (k === "by") { try { localStorage.setItem("sdg-by", e.target.value); } catch (err) {} }
+  clearTimeout(panel.sh); panel.sh = setTimeout(commit, 600);
+});
 
 // ---------------------------------------------------------------- shortcuts sheet (? key)
 // Keep this list in step with the keydown handler above.

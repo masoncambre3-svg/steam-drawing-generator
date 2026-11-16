@@ -231,3 +231,7 @@ previews. apptest.py also needs `playwright` and Chrome.
   middle of what was saved. A product missing from the library on paste is skipped with a warning.
 - The shortcuts sheet (? key) is built from the KEYS list in app.js. Add a line there whenever a shortcut is added
   to the keydown handler.
+- Title block / BOM (`doc.sheet`): `bomRows()` builds the list from the drawing (product name, type and TI come
+  from the pack metadata, so give new packs a clear `type`). `sheetGeom()` lays it out from the drawing size and
+  `renderSheet()` draws it as part of `renderAll()`, so exports include it. `docBox()` includes the frame;
+  `rawBox()` is the drawing alone. Pipe bends from the pipe tool are not items and are not counted.

@@ -93,6 +93,26 @@
         <div class="swatches" id="dimColors"></div>
         <div class="meta" id="dimMeta"></div>
       </div>
+      <div class="group" id="gSheet">
+        <h2>Title block and parts list</h2>
+        <label class="check"><input type="checkbox" id="shFrame"> Border and title block</label>
+        <div id="shFields" class="stack">
+          <div class="row sh"><label for="sh_title">Drawing title</label><input type="text" id="sh_title" autocomplete="off"></div>
+          <div class="row sh"><label for="sh_customer">Customer</label><input type="text" id="sh_customer" autocomplete="off"></div>
+          <div class="row sh"><label for="sh_site">Site / unit</label><input type="text" id="sh_site" autocomplete="off"></div>
+          <div class="row sh"><label for="sh_dwg">Drawing no.</label><input type="text" id="sh_dwg" autocomplete="off"></div>
+          <div class="row sh"><label for="sh_rev">Rev</label><input type="text" id="sh_rev" autocomplete="off"></div>
+          <div class="row sh"><label for="sh_by">Drawn by</label><input type="text" id="sh_by" autocomplete="off"></div>
+          <div class="row sh"><label for="sh_date">Date</label><input type="text" id="sh_date" autocomplete="off"></div>
+          <div class="row sh"><label for="sh_notes">Notes</label><textarea id="sh_notes" rows="2"></textarea></div>
+          <label class="check" id="shLogoWrap"><input type="checkbox" id="shLogo"> Spirax Sarco logo</label>
+        </div>
+        <label class="check"><input type="checkbox" id="shBom"> Bill of materials on the drawing</label>
+        <label class="check"><input type="checkbox" id="shNums"> Item numbers on products</label>
+        <div class="row"><label>Include</label><label class="check"><input type="checkbox" id="shPipe"> Pipe</label><label class="check"><input type="checkbox" id="shEquip"> Equipment</label></div>
+        <div class="row"><label>Text size</label><div class="chips" id="shSize"></div></div>
+        <button class="btn wide" id="bomBtn" type="button">Bill of materials list</button>
+      </div>
       <div class="group">
         <h2>Drawing style</h2>
         <div class="row">
@@ -169,6 +189,19 @@
     </section>
   </div>
   <p class="hint">Projects live in this browser, on this computer. The open drawing saves to its project as you work. Export a project to back it up or move it to another computer, then Import it there.</p>
+</dialog>
+<dialog id="bomDlg" aria-labelledby="bomTitle">
+  <div class="dlg-head"><h2 id="bomTitle">Bill of materials</h2><button class="btn" id="bomClose" type="button">Close</button></div>
+  <div class="bom-wrap"><table class="bom" id="bomTable"></table></div>
+  <div class="dlg-foot">
+    <span class="meta">Include</span>
+    <label class="check"><input type="checkbox" id="bomPipe"> Pipe</label>
+    <label class="check"><input type="checkbox" id="bomEquip"> Equipment</label>
+    <span class="grow"></span>
+    <button class="btn" id="bomCopy" type="button">Copy for Excel</button>
+    <button class="btn primary" id="bomCsv" type="button">Download CSV</button>
+  </div>
+  <p class="hint">Counted from the drawing: one line per model, size and connection. Pipe is the centreline length, rounded up to the next foot. Bends drawn with the pipe tool are not counted.</p>
 </dialog>
 <dialog id="keysDlg" aria-labelledby="keysTitle">
   <div class="dlg-head"><h2 id="keysTitle">Keyboard shortcuts</h2><button class="btn" id="keysClose" type="button">Close</button></div>

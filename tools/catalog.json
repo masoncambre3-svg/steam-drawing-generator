@@ -10,7 +10,25 @@
     "IBV-C",
     "BPC32Y",
     "SMC32Y",
-    "UFT32"
+    "UFT32",
+    "UFT14HC",
+    "UBP32",
+    "UTDS46M",
+    "UTD52L",
+    "UIB30",
+    "UIB30H",
+    "UIB45"
+   ]
+  },
+  {
+   "slug": "connectors",
+   "name": "Pipeline connectors",
+   "products": [
+    "STS17-SB",
+    "STS17-DBUS",
+    "STS17-DBBUSH",
+    "STS17-DBBUSHDSH",
+    "PC4000"
    ]
   },
   {

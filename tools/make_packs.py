@@ -137,9 +137,11 @@ def build_traps(only=None):
         if only and only != model:
             continue
         syms = {f"{model}|{size}|{v}": parts(UN.Universal(model, size, v)) for size in d["sizes"] for v in d["variants"]}
+        extra = {"variantLabel": d["variantLabel"]} if "variantLabel" in d else {}
         write_pack("steam-traps", "Steam traps", model,
                    dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
-                        sizeLabel=d.get("sizeLabel", "Size"), source="Traced from the TI outline drawing", note=d["note"]), syms)
+                        sizeLabel=d.get("sizeLabel", "Size"), **extra,
+                        source=d.get("source", "Traced from the TI outline drawing"), note=d["note"]), syms)
 
 
 def build_strainers(only=None):
@@ -234,9 +236,21 @@ def build_checkvalves(only=None):
                         variantLabel="Connection", source="Traced from the TI outline drawing", note=d["note"]), syms)
 
 
+def build_connectors(only=None):
+    import connectors as CO
+    for model, d in CO.DATA.items():
+        if only and only != model:
+            continue
+        syms = {f"{model}|{size}|{v}": parts(CO.Connector(model, size, v), dec=1) for size in d["sizes"] for v in d["variants"]}
+        extra = {k: d[k] for k in ("sizeLabel", "variantLabel") if k in d}
+        write_pack("connectors", "Pipeline connectors", model,
+                   dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
+                        **extra, source=d.get("source", "Traced from the TI outline drawing"), note=d["note"]), syms)
+
+
 BUILDERS = {"steam-traps": build_traps, "strainers": build_strainers, "valves": build_valves, "pumps": build_pumps,
             "separators": build_separators, "manifolds": build_manifolds,
-            "check-valves": build_checkvalves}
+            "check-valves": build_checkvalves, "connectors": build_connectors}
 
 if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if not a.startswith("--")]

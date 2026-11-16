@@ -1,7 +1,8 @@
 # Tracing kit
 
 Python scripts that turn the outline drawing on a Spirax Sarco TI sheet into a product pack.
-Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for previews.
+Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy` (`scikit-image` for raster.py only); and `rsvg-convert` for
+previews. apptest.py also needs `playwright` and Chrome.
 
 ## Start of a session
 
@@ -35,7 +36,12 @@ Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for
 - `strainers.py`  Fig 16HP, 16L, 34, 34HP, 36, 36HP; cap slides along the leg to hit dimension B; drain port
 - `valves.py`     A3S / A3SS; handwheel scaled as a unit to dimension C
 - `pumps.py`      Pivotrol PTF and PTF Top; nozzles and check valves scaled as a unit to dimension A
-- `universal.py`  UFT32 trap unit (traced, x to A, y to B, connector centreline at C; one port at the connector face)
+- `universal.py`  universal (two bolt) trap units: UFT32, UFT14HC, UBP32, UTDS46M (trap unit only, one port at the
+                  connector face), UIB45 / UIB30 / UIB30H (front view on the PC10HP, in and out at the connector ends),
+                  UTD52L (vectorised picture). Also the shared helpers `_chains` (strokes with colour and dash flag),
+                  `_pw` (piecewise map), `_finish` (silhouette, box, ports; `hidden` closes gaps without drawing them)
+- `connectors.py` STS17.2 trapping stations (four horizontal types) and PC4000 / PC4001 / PC40
+- `raster.py`    vectorise a raster TI picture: skeleton to polylines for strokes, filled outer contour for the fill
 - `manifolds.py`  MSC / MSD manifolds; station count made by repeating 4-station header blocks (see below)
 - `separators.py` S5 / S6 (traced; caps keep drawn size, body to H, plugs slid to B and C, nozzles to A) and
                   S4A / S4A-FL (hand-built from helper shapes, all sizes from the TI table)
@@ -84,8 +90,8 @@ Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for
 - app/logo.js is the vector logo from the cover of TI-P146-05 (11 filled paths, nonzero fill). Any TI cover has
   the same logo if it ever needs redoing.
 - Still to do from TI-P115-03-US: 1-1/2" header and Class 300 flanges (only the drawn 2" Class 150 flange is
-  shown), the bare-body side view on p6, and the no-trap MSC. UFT32 connectors (PC10HP, PC20, PC3_, PC4_)
-  need TI-P128.
+  shown), the bare-body side view on p6, and the no-trap MSC. Connectors still without a pack: PC10 / PC10HP on
+  their own (TI-P128-10), PC20 (TI-P128-15), PC3_ (TI-P128-02).
 
 - Check valves (TI-P601-18, P601-32-US, P154-10-US, P029-16, P029-21, P022-01), 2026-11-16:
   - Read landmarks (faces, centreline, extents) from the vectors, not from a refgrid picture: print each collected chain's
@@ -112,6 +118,35 @@ Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for
     DCV10 end elevations.
   - App test: `python3 tools/apptest.py "Check valves"` placed all 109 symbols with no errors. After each add it calls
     `selectIds([]); refresh(); panel()` so the picker comes back (Escape does not reset it).
+
+- Universal traps and connectors (TI-P712-01, P127-01, P187-03, P113-01, P113-03, P614-04-US, P128-22, P128-33),
+  2026-11-16:
+  - Trap units (UFT14HC, UBP32, UTDS46M) are drawn as the TI draws them, face on the left and body running +x, so they
+    are the mirror of UFT32. The port is the outermost face (spigot or gasket), where the TI's length starts.
+  - None of these TI drawings are to scale both ways. Set x and y separately, and inside a view set the parts that
+    have their own dimension separately (UBP32 spigot to A; UIB connector to D and A, bucket to E and C).
+  - UIB45 draws the PC10HP grey, UIB30 draws it dashed. `_chains(..., dashed=True)` keeps dashed strokes and says
+    which they are, so the connector can be told apart from the trap and drawn solid.
+  - UIB views: parts of the connector that lie on its round body keep their shape (`_on_circle`); its end blocks
+    stretch to A. The connector's round body hides the top of the bucket and lip, so those are closed with `hidden`
+    lines for the silhouette only.
+  - STS17.2 tables give overall sizes (A end face to end face, B centreline to the lowest point), and the arrows on
+    the DBB drawings point somewhere else; the table is right (the drawings at the C scale match it). Scale from C,
+    stretch only the screwed end pieces (inner end at the start of the end hex, xLi / xRi) for A and the DBB bleed
+    end for B. Pieces that only partly lie in the stretch zone must move rigidly (levers, nuts) or the outline
+    opens: only chains inside the end piece band (yc +- hb) are stretched.
+  - Pages 8 to 12 of TI-P128-22 draw every line as its own path, so chains are single segments; map point by point.
+  - Not done from TI-P128-22: DBB USV and DBB USV DSH (p11, p12; the table's A is the overall length over the
+    vertical valves' levers and the inlet is on a vertical end), and every flanged version (ASME 150 / 300, PN40),
+    which the TI only draws with screwed ends. Flanged would need flanges added at each end (and the DBB bleed end).
+  - PC4000 / PC4001: the only complete view is the side view with the pipe end on. In and out are the same point
+    (the app then offers no drop inline); a third port is the trap connector face. The PC4001 sheet hides a copy of
+    the bypass valve under the white body: drop black (grey 0) strokes inside the body.
+  - UTD52L (TI-P614-04-US) is a raster picture. `raster.py` vectorises it; mask dimension lines, centre lines and
+    lettering first (white boxes), use thresh 170 because some edges are drawn grey. The connector face to face is
+    not in the TI; it is measured from the picture. Its connector is sold separately (TI-2-519-US).
+  - Families can be reordered in catalog.json; Pipeline connectors sits after Steam traps.
+  - App test: `apptest.py "Steam traps"` placed 65, `apptest.py "Pipeline connectors"` placed 30, no errors.
 
 ## Conventions the app relies on
 

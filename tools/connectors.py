@@ -338,7 +338,10 @@ def _upc_map(ch, A, Bv, V, straight=False):
         yc = sum(band) / 2
         bot = P[:, 1].max()
         k = Bv / (bot - yc)
-    inb = P[(P[:, 1] > band[0] + 0.5) & (P[:, 1] < band[1] - 1.5)]      # end faces only, not the lugs below them
+    if straight:                                        # each end face is one segment (y 510.19 to 527.94): only its two
+        inb = P[(P[:, 1] >= band[0]) & (P[:, 1] <= band[1])]            # end points exist, so keep the band's edges
+    else:
+        inb = P[(P[:, 1] > band[0] + 0.5) & (P[:, 1] < band[1] - 1.5)]  # end faces only, not the lugs below them
     xl, xr = inb[:, 0].min(), inb[:, 0].max()
     m0, m1 = V["m"]
     cm = (m0 + m1) / 2

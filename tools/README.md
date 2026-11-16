@@ -182,6 +182,11 @@ previews. apptest.py also needs `playwright` and Chrome.
     so `_finish(..., close=10)` (new optional argument, default 3 as before). Leaders inside a view are dropped by
     size, not just by box, because the plug's own short edges sit inside the leader's box. Stray dots are left out
     when finding the end faces (one sat beyond the right face and moved the outlet port).
+  - Fix (later the same day): UPC-ST came out with its body short of both ports (about 4 mm a side on 1/2", 20 mm on
+    1"). Each end face on p3 is one straight segment, so only its two end points exist, and the end face search trimmed
+    the band (+0.5 / -1.5 pt) and threw both away. The straight view now keeps the band's edges. Lesson: when finding a
+    face from points in a band, check a long straight face still has a point inside it, and compare every finished
+    size's box with its ports on the sheet (the red dots), not just the A label.
   - Not done: the PC90 BD adaptor's own shape (drawn as the blank cap, 2 mm shorter as the table gives), the universal
     connectors' end views, UTD52H / UTD52SL / UTD52SH (TI-P017-12-US, not attached), and a socket weld variant for the
     old TD62M pack.

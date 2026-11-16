@@ -142,6 +142,15 @@ def build_traps(only=None):
                    dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
                         sizeLabel=d.get("sizeLabel", "Size"), **extra,
                         source=d.get("source", "Traced from the TI outline drawing"), note=d["note"]), syms)
+    import traps2 as T2
+    for model, d in T2.DATA.items():
+        if only and only != model:
+            continue
+        syms = {f"{model}|{size}|{v}": parts(T2.Trap(model, size, v)) for size in d["sizes"] for v in d["variants"]}
+        write_pack("steam-traps", "Steam traps", model,
+                   dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
+                        variantLabel="Connection", source=d.get("source", "Traced from the TI outline drawing"),
+                        note=d["note"]), syms)
 
 
 def build_strainers(only=None):

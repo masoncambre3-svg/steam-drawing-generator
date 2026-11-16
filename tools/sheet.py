@@ -2,6 +2,7 @@
 
     python3 tools/sheet.py check-valves /tmp/check-valves      # writes .svg and .png, first variant of each product
     python3 tools/sheet.py check-valves /tmp/cv-all --all      # every variant
+    python3 tools/sheet.py steam-traps /tmp/new --all --only=TDC46M,HM34   # just these products
 
 Red dots are the connection points. Each row has its own scale (shown under the name).
 """
@@ -13,6 +14,9 @@ fam=args[0]; R=os.path.join(ROOT,'products',fam)+'/'
 cat=json.load(open(os.path.join(ROOT,'tools','catalog.json')))
 order=next(f['products'] for f in cat['families'] if f['slug']==fam)
 allv = '--all' in sys.argv
+only = next((a[7:].split(',') for a in sys.argv if a.startswith('--only=')), None)
+if only:
+    order = [p for p in order if p in only]
 def load(pid):
     t=open(R+pid+'/'+pid+'.js').read(); return json.loads(t[t.index('SDG.register(')+13:t.rindex(');')])
 rows=[]

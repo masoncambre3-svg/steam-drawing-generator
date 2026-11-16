@@ -93,3 +93,12 @@ def extent(g, origin, thresh=90):
     """Outer edges of the dark lines (x0, y0, x1, y1) in image px."""
     ys, xs = np.nonzero(g < thresh)
     return xs.min() + origin[0], ys.min() + origin[1], xs.max() + 1 + origin[0], ys.max() + 1 + origin[1]
+
+
+def render(pdf, page, rect, px_wide):
+    """The page area rect (x0, y0, x1, y1, pt) rendered grey, px_wide pixels across. For pictures that get_images()
+    cannot hand back as grey (HM34, TI-2-404-US: a 1-bit image mask), render at about the picture's own resolution."""
+    pg = pymupdf.open(pdf)[page - 1]
+    z = px_wide / (rect[2] - rect[0])
+    pm = pg.get_pixmap(matrix=pymupdf.Matrix(z, z), clip=pymupdf.Rect(*rect), colorspace=pymupdf.csGRAY)
+    return np.frombuffer(pm.samples, np.uint8).reshape(pm.h, pm.w).copy()

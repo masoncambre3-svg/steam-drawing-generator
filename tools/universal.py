@@ -11,7 +11,7 @@ UFT32 (TI-P146-05)
 """
 import numpy as np, pymupdf
 import ti_trace as T
-from sources import UFT32_PDF, UFT14HC_PDF, UBP32_PDF, UTDS46M_PDF, UIB45_PDF, UIB30_PDF, UTD52L_PDF
+from sources import UFT32_PDF, UFT14HC_PDF, UBP32_PDF, UTDS46M_PDF, UIB45_PDF, UIB30_PDF, UTD52L_PDF, USM90_PDF, UTDS90_PDF
 
 UFT_RATINGS = ["4.5", "10", "14", "21", "32"]
 DATA = {
@@ -163,14 +163,16 @@ def _mapped(segs, f):
     return [(sg[0],) + tuple(f(p) for p in sg[1:]) for sg in segs]
 
 
-def _finish(self, parts, lw, ports, k, hidden=(), px=20):
+def _finish(self, parts, lw, ports, k, hidden=(), px=20, close=3):
     """parts: seg lists already in mm. Silhouette, strokes, box and ports, as for UFT32.
-    hidden: extra seg lists that close the silhouette where the TI leaves a gap (behind another part); not drawn."""
+    hidden: extra seg lists that close the silhouette where the TI leaves a gap (behind another part); not drawn.
+    close: gap (px at px per mm) the silhouette bridges between line ends; raise it for drawings made of many short
+    pieces that do not quite meet (TI-P127-03-US)."""
     thick = [(lw, segs) for segs in parts] + [(lw, segs) for segs in hidden]
     P = np.vstack([T.flat(sg) for _, segs in thick for sg in segs])
     mg = 6
     c2 = (P[:, 0].min() - mg, P[:, 1].min() - mg, P[:, 0].max() + mg, P[:, 1].max() + mg)
-    g = T.assemble(thick, [], c2, px=px)
+    g = T.assemble(thick, [], c2, px=px, close=close)
     self.fill = [[tuple(p) for p in poly] for poly in g["fill"]]
     self.strokes = [(w, [[sg[0]] + [tuple(p) for p in sg[1:]] for sg in segs]) for w, segs in g["outline"][:len(parts)]]
     m = lw / 2
@@ -348,4 +350,59 @@ def _utd52l(self):
     self.k = kx
 
 
-TRACERS = {"UTD52L": _utd52l, "UFT14HC": _uft14hc, "UBP32": _ubp32, "UTDS46M": _utds46m, "UIB45": _uib, "UIB30": _uib, "UIB30H": _uib}
+# ---------------------------------------------------------------- 4-bolt (PC90) trap units, added 2026-11-16
+# USM90 (TI-P805-01) and UTDS90 (TI-P804-01): side view of the trap unit, face on the left as the TI draws it.
+# The connection point is the connector face, at the height of the PC90 pipe centreline. That height is read from the
+# TI's third view (trap bolted to the PC90, pipe end on): both views share the same y on the sheet. The trap's own
+# spigot sits about 5 mm below the pipe centreline.
+N_90 = ("Trap unit only, side view as the TI draws it. The PC90 4-bolt connector is not drawn here (it is the PC90 pack, "
+        "whose side view takes this trap). The connection point is the connector face at the height of the PC90 pipe "
+        "centreline, read from the TI's view of the trap on its connector. ")
+DATA["USM90"] = {
+    "name": "USM90", "type": "Bimetallic, sealed stainless, for PC90 4-bolt connector", "ti": "TI-P805-01",
+    "sizes": {"USM90": dict(A=115, B=79, C=64)}, "variants": ["-"], "sizeLabel": "Model",
+    "note": N_90 + "Length A (connector face to the end of the body), height B (top of the body to the bottom of the "
+            "flange) and body diameter C are from the TI table; the TI drawing is about 5% longer than it is tall, so "
+            "x and y are set separately. Withdrawal distances E (80, connector bolts) and F (85, cap screws and screen) "
+            "are not drawn.",
+}
+DATA["UTDS90"] = {
+    "name": "UTDS90", "type": "Thermodynamic with strainer, stainless, for PC90 4-bolt connector", "ti": "TI-P804-01",
+    "sizes": {"UTDS90": dict(A=94, B=64, C=67, D=119)}, "variants": ["-"], "sizeLabel": "Model",
+    "note": N_90 + "Overall length D (connector face to the end of the body) and flange height C are from the TI table; "
+            "body length A comes out at about 94.5. The TI drawing is not to scale: B (top of the cap screws to the "
+            "spigot centre) and C cannot both be met at one vertical scale, so the part above the flange is stretched "
+            "to make B 64. Withdrawal distances E (80), F (85) and G (30) are not drawn.",
+}
+
+
+def _usm90(self):
+    """TI-P805-01 p4 side view. x to A (face to the dome end), y to B (top of the body to the bottom of the flange)."""
+    A, B = self.d["A"], self.d["B"]
+    lw = 0.6
+    ch = _chains(USM90_PDF, 4, (72, 398, 184, 481), max_lw=1.0)
+    ch = [c for c in ch if c[2] < 0.9]
+    xa, xb, yt, yb, yc = 74.38, 180.79, 401.19, 478.08, 440.55     # face, dome end, body top, flange bottom, pipe CL
+    sx, sy = (A - lw) / (xb - xa), (B - lw) / (yb - yt)
+    f = lambda p: ((p[0] - xa) * sx + lw / 2, (p[1] - yc) * sy)
+    _finish(self, [_mapped(segs, f) for _, segs, _, _ in ch], lw, {"in": (0.0, 0.0)}, sx)
+
+
+def _utds90(self):
+    """TI-P804-01 p4 side view. x to D (face to the end of the body); y piecewise: flange to C, top to B."""
+    B, C, D = self.d["B"], self.d["C"], self.d["D"]
+    lw = 0.6
+    ch = _chains(UTDS90_PDF, 4, (118, 428, 252, 537), max_lw=1.0)
+    ch = [c for c in ch if c[2] < 0.9]
+    xa, xb = 120.09, 248.43                                         # spigot face, end of the body
+    yt, ft, fb, ysp, yc = 431.27, 461.74, 533.93, 497.83, 491.9     # top, flange top / bottom, spigot centre, pipe CL
+    sx = (D - lw) / (xb - xa)
+    kc = (C - lw) / (fb - ft)
+    Ysp = (ysp - yc) * kc
+    Ytop = Ysp - (B - lw / 2)
+    src, dst = [yt, ft, fb], [Ytop, Ysp - (ysp - ft) * kc, Ysp + (fb - ysp) * kc]
+    f = lambda p: ((p[0] - xa) * sx + lw / 2, _pw(p[1], src, dst))
+    _finish(self, [_mapped(segs, f) for _, segs, _, _ in ch], lw, {"in": (0.0, 0.0)}, sx)
+
+
+TRACERS = {"USM90": _usm90, "UTDS90": _utds90, "UTD52L": _utd52l, "UFT14HC": _uft14hc, "UBP32": _ubp32, "UTDS46M": _utds46m, "UIB45": _uib, "UIB30": _uib, "UIB30H": _uib}

@@ -72,8 +72,8 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
 
 | Family | Products |
 |---|---|
-| Steam traps | TD52, TD62M / TD62LM, FT450, IBV Series C, BPC32Y, SMC32Y, UFT32, UFT14HC, UBP32, UTDS46M (trap units), UTD52L (on strainer connector), UIB30, UIB30H, UIB45 (on PC10HP) |
-| Pipeline connectors | STS17.2 SB, DB US, DBB USH, DBB USH DSH (screwed / SW), PC4000 / PC4001 / PC40 |
+| Steam traps | TD52, TD62M / TD62LM (screwed, and flanged), TDC46M, TD120M (and PN160 / PN250), FT450, IBV Series C, HM34, BPC32Y, SMC32Y, UFT32, UFT14HC, UBP32, UTDS46M (trap units), UTD52L (on strainer connector), UIB30, UIB30H, UIB45 (on PC10HP), USM90, UTDS90 (4-bolt trap units) |
+| Pipeline connectors | STS17.2 SB, DB US, DBB USH, DBB USH DSH (screwed / SW), PC4000 / PC4001 / PC40, PC90 (front and side views, SW / BW / Class 600 / 900), universal strainer connector (RH / LH, plug / blowdown valve) and straight connector (US) |
 | Strainers | Fig 16HP, Fig 16L, Fig 34, Fig 34HP, Fig 36, Fig 36HP |
 | Valves | A3S / A3SS |
 | Check valves | DCV41, DCV10, SDCV44, LCV3/4/6/7 (screwed / SW, ASME flanged, PN flanged), CVS10, Sight Check |

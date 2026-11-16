@@ -6,8 +6,13 @@
    "products": [
     "TD52",
     "TD62M",
+    "TD62M-FL",
+    "TDC46M",
+    "TD120M",
+    "TD120M-PN",
     "FT450",
     "IBV-C",
+    "HM34",
     "BPC32Y",
     "SMC32Y",
     "UFT32",
@@ -17,7 +22,9 @@
     "UTD52L",
     "UIB30",
     "UIB30H",
-    "UIB45"
+    "UIB45",
+    "USM90",
+    "UTDS90"
    ]
   },
   {
@@ -28,7 +35,12 @@
     "STS17-DBUS",
     "STS17-DBBUSH",
     "STS17-DBBUSHDSH",
-    "PC4000"
+    "PC4000",
+    "PC90",
+    "PC90-BW",
+    "PC90-SIDE",
+    "UPC-STR",
+    "UPC-ST"
    ]
   },
   {

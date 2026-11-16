@@ -41,14 +41,19 @@ previews. apptest.py also needs `playwright` and Chrome.
                   UTD52L (vectorised picture). Also the shared helpers `_chains` (strokes with colour and dash flag),
                   `_pw` (piecewise map), `_finish` (silhouette, box, ports; `hidden` closes gaps without drawing them)
 - `connectors.py` STS17.2 trapping stations (four horizontal types) and PC4000 / PC4001 / PC40
-- `raster.py`    vectorise a raster TI picture: skeleton to polylines for strokes, filled outer contour for the fill
+- `raster.py`    vectorise a raster TI picture: skeleton to polylines for strokes, filled outer contour for the fill;
+                  `render()` for pictures `image()` cannot read (1-bit image masks)
 - `manifolds.py`  MSC / MSD manifolds; station count made by repeating 4-station header blocks (see below)
 - `separators.py` S5 / S6 (traced; caps keep drawn size, body to H, plugs slid to B and C, nozzles to A) and
                   S4A / S4A-FL (hand-built from helper shapes, all sizes from the TI table)
 - `checkvalves.py` DCV41, DCV10, SDCV44, CVS10, Sight Check, LCV (three packs: screwed / SW, ASME flanged, PN flanged)
+- `traps2.py`     TDC46M, TD62M-FL (flanged TD62M / TD62LM), TD120M and TD120M-PN, HM34 (raster); flange OD table `OD`;
+                  helpers `_rigid` (move a group of chains as one piece, e.g. a flow arrow), `_cut_x` (cut a drawing off at
+                  two x values, for welded ends), `_fy_flange` (flange y that still meets the neck)
 - `make_packs.py` writes packs, previews, catalog and index
 - `sheet.py`      every size of one family on one sheet (`python3 tools/sheet.py check-valves /tmp/cv`), for the check
-                  before handing over and for the preview image the user asks for
+                  before handing over and for the preview image the user asks for; `--all` every variant, `--only=A,B`
+                  just those products
 - `apptest.py`    opens index.html from disk in headless Chrome (playwright) and adds every size and variant of one family
                   through the picker; reports load failures, picks the panel would not take and page errors
 - `catalog.json`  families and product order shown in the app
@@ -147,6 +152,42 @@ previews. apptest.py also needs `playwright` and Chrome.
     not in the TI; it is measured from the picture. Its connector is sold separately (TI-2-519-US).
   - Families can be reordered in catalog.json; Pipeline connectors sits after Steam traps.
   - App test: `apptest.py "Steam traps"` placed 65, `apptest.py "Pipeline connectors"` placed 30, no errors.
+
+- TD traps, HM34, 4-bolt traps and connectors (TI-P187-04, P068-20, P150-11, 2-404-US, P805-01, P804-01, P806-01,
+  P127-03-US), 2026-11-16:
+  - TI-P068-08 (TD62M / TD62LM screwed / SW) was attached too; that is the existing TD62M pack and was not changed.
+    It only lists "screwed"; SW has the same outline and could be added as a second variant.
+  - Flanged traps: a flange chain is one whose bbox lies outside the flange back (allow 0.4 pt: the TD62M flange back
+    edge is drawn slightly skew). Flange y is scaled to the real OD, but `_fy_flange` keeps the body scale up to the neck
+    joint so neck and flange still meet. Flange OD from B16.5 / EN 1092-1 / JIS B 2220 (`traps2.OD`).
+  - Flange thickness is not in any of these TIs. TDC46M and TD120M keep it in proportion to the drawn flange and let the
+    necks take up the rest of the length. TD62M-FL has almost no neck, so its body keeps its drawn width and the flange
+    takes up the rest of B (that comes out close to B16.5 thickness plus raised face: 600 thicker than 300).
+  - TD120M BW / SW: the TI draws the flanged trap only; `_cut_x` cuts the necks at the TI's B extension lines and the
+    end is closed with a short line. PN160 / PN250 have no DN20, so they are a second pack (TD120M-PN).
+  - Several TIs merge table cells (TD120M A, B1, PN250 B2; TDC46M B). The rendered page shows which rows a value spans.
+  - HM34 (TI-2-404-US) is a 1-bit CCITT image mask: `raster.image()` cannot read it, so `raster.render()` renders the area
+    at the picture's own resolution (765 px across). The outer wall on the picture has a break (x 200, y 546-578);
+    `HM34_FIX` paints it in before vectorising. Crop with at least the silhouette `close` (27 px) of white margin round
+    the drawing: `cv2.morphologyEx` treats the image edge as filled and the fill runs out to the crop edge otherwise.
+    The picture is not to scale (x 0.30 mm/px, y 0.24-0.25), so x is set from A and y from F and G.
+  - USM90 / UTDS90: the trap's spigot is about 5 mm below the PC90 pipe centreline. The port is put at the pipe
+    centreline, read from the TI's third view (trap on its connector, same y as the side view), so a trap snaps onto the
+    PC90 side view's trap face and lines up as the TI shows. UTDS90's B and C cannot both be met at one y scale.
+  - PC90: front view flow is right to left (TI arrow), so in is the right end and out is at x = -A. Drop-inline handles
+    it (it flips the product so in faces upstream); tested both pipe directions. Class 600 / 900 weld neck flanges are
+    built from B16.5 (`connectors.WN`); the TI's B for flanged is exactly OD/2 + 77, which checks the diameters.
+  - PC90 side view: the flange circle is drawn only where it is not behind the body (`hidden` closes the fill).
+  - TI-P127-03-US: every line is its own tiny path (about 1,000 per view), drawn at 0.21 pt; pieces do not quite meet,
+    so `_finish(..., close=10)` (new optional argument, default 3 as before). Leaders inside a view are dropped by
+    size, not just by box, because the plug's own short edges sit inside the leader's box. Stray dots are left out
+    when finding the end faces (one sat beyond the right face and moved the outlet port).
+  - Not done: the PC90 BD adaptor's own shape (drawn as the blank cap, 2 mm shorter as the table gives), the universal
+    connectors' end views, UTD52H / UTD52SL / UTD52SH (TI-P017-12-US, not attached), and a socket weld variant for the
+    old TD62M pack.
+  - App test: `apptest.py "Steam traps"` placed 122, `apptest.py "Pipeline connectors"` placed 88, no errors. Also
+    tested in the page from disk: drop-inline for every new inline product in both pipe directions (in upstream, both
+    pipes joined), and USM90 / UTDS90 / UTDS46M snapping onto the PC90 side view trap face.
 
 ## Conventions the app relies on
 

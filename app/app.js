@@ -32,6 +32,7 @@ if (Object.keys(EQ).length) {
     sizes: ["-"], variants: e.variants, variantLabel: e.variantLabel, note: e.note, eq: true });
 }
 const EQC = {}; let eqcN = 0;
+const MYASM = "My assemblies";
 function eqSym(id, prm, variant) {
   const k = `${id}|${variant}|${JSON.stringify(prm)}`;
   if (EQC[k]) return EQC[k];
@@ -71,7 +72,7 @@ const PRESETS = [["Blue", "#3f86dc"], ["Navy", "#1f3f73"], ["Steel grey", "#8d99
                  ["Orange", "#e58a2b"], ["Yellow", "#e9c53c"], ["Green", "#3f9a5f"], ["White", "#f2f4f7"]];
 const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
-const BUILD = "9";
+const BUILD = "10";
 const LOGO = window.SDG_LOGO || null;                       // vector Spirax Sarco logo, app/logo.js
 const STYLE0 = { shade: true, blackLines: false, units: "ftin", prec: 1 };
 const UNITS = [["ftin", "ft-in"], ["in", "in"], ["mm", "mm"]];
@@ -391,12 +392,135 @@ function dimSnap(p) {
   for (const q of t) { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; best = q; } }
   return best ? [best[0], best[1]] : snapPoint(p, null, null, true).slice(0, 2);
 }
-function snapSym(it) {                                    // pull a product onto a nearby pipe end or port, else onto the grid
-  const tol = 11 / ui.view.s, ps = portsOf(it), targets = snapTargets(it.id);
+function snapSym(it, skip) {                              // pull a product onto a nearby pipe end or port, else onto the grid
+  const tol = 11 / ui.view.s, ps = portsOf(it), targets = snapTargets(skip || it.id);
   let best = null, bd = tol;
   for (const p of ps) for (const t of targets) { const d = Math.hypot(t[0] - p[0], t[1] - p[1]); if (d < bd) { bd = d; best = [t[0] - p[0], t[1] - p[1]]; } }
+  const hit = !!best;
   if (!best) best = [gridSnap(ps[0][0]) - ps[0][0], gridSnap(ps[0][1]) - ps[0][1]];
   it.x += best[0]; it.y += best[1];
+  return hit;
+}
+
+// ---------------------------------------------------------------- sticky connections
+// A pipe end sitting on a product connection stays on it. When the product moves, turns, flips, changes size or is
+// stretched, the pipe end follows and the run next to it keeps its direction (the turn before it slides instead).
+// Worked out from positions against a snapshot taken at each commit, so nothing extra goes in the drawing file.
+const CTOL = 0.6;                                          // mm: a pipe end this close to a connection is on it
+const r2 = v => Math.round(v * 100) / 100;
+const near = (a, b, t) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= (t === undefined ? CTOL : t);
+let snap = null;
+function takeSnap() {
+  snap = { ports: new Map(), pipes: new Map(), auto: new Set() };
+  for (const it of doc.items) {
+    if (it.type === "sym" && valid(it)) snap.ports.set(it.id, portsOf(it));
+    else if (it.type === "pipe") snap.pipes.set(it.id, JSON.stringify(it.pts));
+  }
+}
+// pipes with an end on a connection of any of these products, as of the snapshot
+function attachedPipes(symIds) {
+  const out = new Set(); if (!snap || !symIds.length) return out;
+  for (const [pid, pj] of snap.pipes) {
+    const P = JSON.parse(pj), ends = [P[0], P[P.length - 1]];
+    if (symIds.some(sid => (snap.ports.get(sid) || []).some(q => ends.some(e => near(e, q))))) out.add(pid);
+  }
+  return out;
+}
+function reconnect() {
+  if (!snap) return;
+  const moved = [];
+  for (const it of doc.items) {
+    if (it.type !== "sym" || !valid(it)) continue;
+    const old = snap.ports.get(it.id); if (!old) continue;
+    const now = portsOf(it);
+    if (now.length !== old.length || now.some((p, i) => !near(p, old[i], 0.01))) moved.push({ old, now });
+  }
+  if (!moved.length && !snap.auto.size) return;
+  for (const it of doc.items) {
+    if (it.type !== "pipe") continue;
+    const oj = snap.pipes.get(it.id); if (!oj) continue;
+    if (JSON.stringify(it.pts) !== oj && !snap.auto.has(it.id)) continue;   // moved or edited by hand: leave it alone
+    const P = JSON.parse(oj), last = P.length - 1, to = [null, null];
+    [0, last].forEach((ix, e) => {
+      for (const m of moved) {
+        const k = m.old.findIndex(q => near(q, P[ix])); if (k < 0) continue;
+        if (!m.now.some(q => near(q, P[ix]))) to[e] = m.now[k].slice(0, 2);  // (still on a connection after a mirror: stays)
+        break;
+      }
+    });
+    if (!to[0] && !to[1]) { if (snap.auto.has(it.id)) { it.pts = P; snap.auto.delete(it.id); } continue; }
+    const d0 = to[0] && [to[0][0] - P[0][0], to[0][1] - P[0][1]], d1 = to[1] && [to[1][0] - P[last][0], to[1][1] - P[last][1]];
+    if (d0 && d1 && near(d0, d1, 0.01)) it.pts = P.map(p => [r2(p[0] + d0[0]), r2(p[1] + d0[1])]);   // both ends: carry it
+    else {
+      [[0, 1, d0], [last, last - 1, d1]].forEach(([ix, j, d]) => {
+        if (!d) return;
+        if (P.length > 2) {                                  // slide the turn so this run keeps its direction
+          const ux = P[ix][0] - P[j][0], uy = P[ix][1] - P[j][1], l = Math.hypot(ux, uy);
+          if (l > 1e-6) { const a = (d[0] * ux + d[1] * uy) / (l * l); P[j] = [P[j][0] + d[0] - a * ux, P[j][1] + d[1] - a * uy]; }
+        }
+        P[ix] = [P[ix][0] + d[0], P[ix][1] + d[1]];
+      });
+      it.pts = P.map(p => [r2(p[0]), r2(p[1])]);
+    }
+    snap.auto.add(it.id);
+  }
+}
+
+// ---------------------------------------------------------------- drop a product onto a pipe
+// Products whose in and out connections are straight through (traps, strainers, valves, reducers, a tee's run) can
+// be dropped on a pipe run: they turn to the run, the pipe is cut and both sides connect.
+function canInline(it) {
+  if (it.type !== "sym" || EQ[it.product] || !valid(it)) return false;
+  const s = symOf(it); if (s.ports.length < 2 || s.ports.length > 3) return false;
+  const [a, b] = s.ports, vx = b[0] - a[0], vy = b[1] - a[1];
+  if (Math.hypot(vx, vy) < 1) return false;
+  const ang = Math.atan2(vy, vx) * 180 / Math.PI;
+  return Math.abs(ang - Math.round(ang / 90) * 90) < 1;
+}
+function findInline(it, skip) {
+  const ps = portsOf(it), m = [(ps[0][0] + ps[1][0]) / 2, (ps[0][1] + ps[1][1]) / 2], L = Math.hypot(ps[1][0] - ps[0][0], ps[1][1] - ps[0][1]);
+  let best = null, bd = Infinity;
+  for (const p of doc.items) {
+    if (p.type !== "pipe" || (skip && skip.has(p.id))) continue;
+    const tol = Math.max(14 / ui.view.s, PIPE[p.nps][0] * 0.8);
+    for (let i = 0; i < p.pts.length - 1; i++) {
+      const a = p.pts[i], b = p.pts[i + 1], vx = b[0] - a[0], vy = b[1] - a[1], S = Math.hypot(vx, vy);
+      if (S < L + 1) continue;
+      const k = ((m[0] - a[0]) * vx + (m[1] - a[1]) * vy) / (S * S); if (k <= 0 || k >= 1) continue;
+      const dd = Math.hypot(a[0] + vx * k - m[0], a[1] + vy * k - m[1]);
+      if (dd <= tol && dd < bd) { bd = dd; best = { id: p.id, i, k }; }
+    }
+  }
+  return best;
+}
+function applyInline(it, t) {
+  const p = doc.items.find(q => q.id === t.id); if (!p || !p.pts[t.i + 1]) return false;
+  const a = p.pts[t.i], b = p.pts[t.i + 1], S = Math.hypot(b[0] - a[0], b[1] - a[1]), ua = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+  const sp = symOf(it).ports, v = [sp[1][0] - sp[0][0], sp[1][1] - sp[0][1]], L = Math.hypot(v[0], v[1]);
+  // in faces upstream (the start of the pipe run); of the two ways to get there, keep the product upright
+  let pick = null;
+  for (const f of [it.flip, !it.flip]) {
+    let r = ua - Math.atan2(v[1], (f ? -1 : 1) * v[0]) * 180 / Math.PI;
+    r = ((r % 360) + 540) % 360 - 180;                     // -180..180
+    if (Math.abs(r / 45 - Math.round(r / 45)) < 0.012) r = Math.round(r / 45) * 45;
+    if (!pick || Math.abs(r) < Math.abs(pick.r) - 0.01) pick = { f, r };
+  }
+  it.flip = pick.f; it.rot = r2(((pick.r % 360) + 360) % 360);
+  const st = lenStep(), s0 = Math.max(0, Math.min(S - L, Math.round((t.k * S - L / 2) / st) * st)), u = [(b[0] - a[0]) / S, (b[1] - a[1]) / S];
+  const pin = [r2(a[0] + u[0] * s0), r2(a[1] + u[1] * s0)];
+  let q = portsOf(it); it.x = r2(it.x + pin[0] - q[0][0]); it.y = r2(it.y + pin[1] - q[0][1]);
+  q = portsOf(it); const pout = [r2(q[1][0]), r2(q[1][1])];
+  const clean = P => P.filter((x, j) => !j || !near(x, P[j - 1], 0.01));
+  const A = clean([...p.pts.slice(0, t.i + 1), pin]), B = clean([pout, ...p.pts.slice(t.i + 1)]);
+  const len = P => P.slice(1).reduce((n, x, j) => n + Math.hypot(x[0] - P[j][0], x[1] - P[j][1]), 0);
+  if (A.length > 1 && B.length > 1) {
+    const nb = Object.assign(JSON.parse(JSON.stringify(p)), { id: nextId++, pts: B });
+    p.pts = A; if (p.label) { const la = len(A) >= len(B); p.label = la; nb.label = !la; }
+    doc.items.push(nb);
+  } else if (A.length > 1) p.pts = A;
+  else if (B.length > 1) p.pts = B;
+  else doc.items = doc.items.filter(x => x !== p);
+  return true;
 }
 
 // ---------------------------------------------------------------- canvas
@@ -420,6 +544,11 @@ function draw() {
   if (ui.drag && ui.drag.kind === "box" && ui.drag.cur) {
     const a = ui.drag.start, c = ui.drag.cur;
     o += `<rect x="${Math.min(a[0], c[0])}" y="${Math.min(a[1], c[1])}" width="${Math.abs(c[0] - a[0])}" height="${Math.abs(c[1] - a[1])}" fill="#1f5fae" fill-opacity="0.06" stroke="#1f5fae" stroke-width="${px}" stroke-dasharray="${4 * px} ${3 * px}" pointer-events="none"/>`;
+  }
+  if (ui.drag && ui.drag.inline) {
+    const t = ui.drag.inline, p = doc.items.find(q => q.id === t.id);
+    if (p && p.pts[t.i + 1]) { const a = p.pts[t.i], c = p.pts[t.i + 1];
+      o += `<line x1="${a[0]}" y1="${a[1]}" x2="${c[0]}" y2="${c[1]}" stroke="#1f5fae" stroke-opacity="0.3" stroke-width="${PIPE[p.nps][0] + 10 * px}" stroke-linecap="round" pointer-events="none"/>`; }
   }
   if (sel && valid(sel)) {
     const b = bboxOf(sel), m = 4 * px;
@@ -453,7 +582,7 @@ function draw() {
   bar.querySelector("i").style.width = (inches * 25.4 * v.s).toFixed(1) + "px";
   bar.querySelector("span").textContent = inches >= 12 ? `${inches / 12} ft` : `${inches} in`;
   $("board").className = "board t-" + ui.tool;
-  $("tip").textContent = { select: many.length > 1 ? `${many.length} items. Drag to move them together. Ctrl+G groups, Ctrl+Shift+G ungroups.` :
+  $("tip").textContent = ui.drag && ui.drag.inline ? "Let go to cut it into the pipe." : { select: many.length > 1 ? `${many.length} items. Drag to move them together. Ctrl+G groups, Ctrl+Shift+G ungroups.` :
       sel ? "Drag to move. Delete removes it. Shift+click adds to the selection." : "Click an item to select it. Shift+drag a box to select several. Drag the sheet to pan, scroll to zoom.",
     pipe: ui.draft ? "Aim with the mouse and type a length, then Enter. Or click. Double-click or Enter on an empty box finishes, Esc cancels." : "Click to start a pipe. It snaps to product connections (blue dots).",
     text: "Click where the label goes.", arrow: ui.draft ? "Click where the arrow points." : "Click where the arrow starts.",
@@ -477,17 +606,19 @@ const nextGrp = () => 1 + Math.max(0, ...doc.items.map(i => i.grp || 0));
 
 // ---------------------------------------------------------------- history and storage
 function commit() {
+  reconnect();
   const j = JSON.stringify(doc);
   if (j !== hist[hi]) { hist = hist.slice(0, hi + 1); hist.push(j); hi++; if (hist.length > 80) { hist.shift(); hi--; } }
   try { localStorage.setItem("sdg-doc", j); } catch (e) {}
   projAutosave(j);
+  takeSnap();
   refresh();
 }
 function loadDoc(d) {
   if (!d || !Array.isArray(d.items)) throw new Error("bad file");
   doc = { v: 1, style: Object.assign({}, STYLE0, d.style || {}), items: d.items.filter(i => i && ["sym", "pipe", "text", "arrow", "dim"].includes(i.type) && (i.type !== "pipe" || PIPE[i.nps])) };
   doc.items.forEach(i => { i.id = nextId++; });
-  selectIds([]); ui.draft = null;
+  selectIds([]); ui.draft = null; takeSnap();
 }
 function step(n) { if (hist[hi + n] === undefined) return; hi += n; const keep = ui.view; loadDoc(JSON.parse(hist[hi])); ui.view = keep; try { localStorage.setItem("sdg-doc", hist[hi]); } catch (e) {} refresh(); }
 function refresh() { draw(); panel(); projLabel(); }
@@ -514,24 +645,35 @@ function panel() {
   $("gDim").hidden = !(kind === "dim" || (!sel && ui.tool === "dim"));
   const many = selItems(), grouped = many.length > 1 && many.every(i => i.grp && i.grp === many[0].grp);
   $("gSel").hidden = many.length < 2;
+
   if (many.length > 1) {
     $("gProduct").hidden = true;
     $("selTitle").textContent = grouped ? `Group of ${many.length}` : `${many.length} items selected`;
     $("selHint").textContent = grouped ? "Moves, copies, rotates and deletes as one. Alt+click an item in the group to edit just that item." :
       "Drag any of them to move them together. Group them to keep them together.";
   }
-  $("bGroup").disabled = many.length < 2 || grouped; $("bUngroup").disabled = !many.some(i => i.grp);
+  const ung = many.length > 0 && many.some(i => i.grp) && (grouped || many.length < 2);
+  $("bGroup").textContent = ung ? "Ungroup" : "Group"; $("bGroup").disabled = !ung && many.length < 2;
   ["Select", "Pipe", "Text", "Arrow", "Dim"].forEach(t => $("t" + t).setAttribute("aria-pressed", ui.tool === t.toLowerCase()));
   $("bRot").disabled = !(kind === "sym" || kind === "pipe" || many.length > 1); $("bFlip").disabled = kind !== "sym";
-  $("bRot").textContent = kind === "pipe" ? "Rotate 45°" : "Rotate"; $("bDup").disabled = $("bDel").disabled = !many.length;
+  $("bRot").textContent = kind === "pipe" ? "Rotate 45°" : "Rotate"; $("bDup").disabled = $("bDel").disabled = $("bCopy").disabled = !many.length;
+  $("bPaste").disabled = !readClip();
   $("bUndo").disabled = hi <= 0; $("bRedo").disabled = hi >= hist.length - 1;
   $("shade").checked = doc.style.shade; $("blackLines").checked = doc.style.blackLines;
 
   // product picker: edits the selected product, or sets up the next one to add
   const tgt = kind === "sym" ? sel : ui.pick, editing = kind === "sym";
   const set = (k, v) => { tgt[k] = v; if (editing) commit(); else panel(); };
-  let p = LIB.products.find(q => q.id === tgt.product);
-  if (!editing) {
+  const famChips = () => chipRow($("families"), [...LIB.families, MYASM], ui.pick.family, v => {
+    const grey = f => f === "Fittings" || f === "Equipment";             // fittings and equipment start out pipe grey
+    if (grey(v) && !grey(ui.pick.family)) { ui.pick.prevColor = ui.pick.color; ui.pick.color = ui.pipe.color; }
+    if (!grey(v) && grey(ui.pick.family) && ui.pick.prevColor) ui.pick.color = ui.pick.prevColor;
+    ui.pick.family = v; panel(); });
+  const asmMode = !editing && ui.pick.family === MYASM;     // the picker shows saved assemblies instead of products
+  $("asmBody").hidden = !asmMode; $("prodBody").hidden = asmMode;
+  if (asmMode) { $("prodTitle").textContent = "Add a product"; $("families").hidden = false; famChips(); asmPanel(); }
+  let p = asmMode ? null : LIB.products.find(q => q.id === tgt.product);
+  if (!editing && !asmMode) {
     if (!p || p.family !== ui.pick.family) { ui.pick.product = LIB.products.find(q => q.family === ui.pick.family).id; p = LIB.products.find(q => q.id === ui.pick.product); }
     if (!p.sizes.includes(ui.pick.size)) ui.pick.size = p.sizes[Math.min(1, p.sizes.length - 1)];
     if (!variantsOf(p, ui.pick.size).includes(ui.pick.variant)) ui.pick.variant = variantsOf(p, ui.pick.size)[0];
@@ -540,11 +682,7 @@ function panel() {
     $("prodTitle").textContent = editing ? "Selected product" : "Add a product";
     $("families").hidden = $("products").hidden = $("addBtn").hidden = editing;
     if (!editing) {
-      chipRow($("families"), LIB.families, ui.pick.family, v => {
-        const grey = f => f === "Fittings" || f === "Equipment";           // fittings and equipment start out pipe grey
-        if (grey(v) && !grey(ui.pick.family)) { ui.pick.prevColor = ui.pick.color; ui.pick.color = ui.pipe.color; }
-        if (!grey(v) && grey(ui.pick.family) && ui.pick.prevColor) ui.pick.color = ui.pick.prevColor;
-        ui.pick.family = v; panel(); });
+      famChips();
       const box = $("products"); box.innerHTML = ""; gradN = 1000;
       LIB.products.filter(q => q.family === ui.pick.family).forEach(q => {
         const b = document.createElement("button"); b.type = "button"; b.className = "prod"; b.setAttribute("aria-pressed", q.id === ui.pick.product);
@@ -708,10 +846,13 @@ function rotateSet(m) {
   commit();
 }
 // change one run of a pipe to length L; the points after it move along with it
+// change one run of a pipe to length L; the points after it, and a product on the far end, move along with it
 function setRunLength(it, i, L) {
   const a = it.pts[i], b = it.pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (!l) return;
-  const dx = (b[0] - a[0]) / l * (L - l), dy = (b[1] - a[1]) / l * (L - l);
-  it.pts = it.pts.map((p, j) => j > i ? [Math.round((p[0] + dx) * 100) / 100, Math.round((p[1] + dy) * 100) / 100] : p);
+  const dx = (b[0] - a[0]) / l * (L - l), dy = (b[1] - a[1]) / l * (L - l), end = it.pts[it.pts.length - 1], start = it.pts[0];
+  const hang = doc.items.filter(s => s.type === "sym" && valid(s) && portsOf(s).some(q => near(q, end)) && !portsOf(s).some(q => near(q, start)));
+  it.pts = it.pts.map((p, j) => j > i ? [r2(p[0] + dx), r2(p[1] + dy)] : p);
+  hang.forEach(s => { s.x = r2(s.x + dx); s.y = r2(s.y + dy); });
   commit();
 }
 // while drawing a pipe: add a run of length L toward the mouse (or straight on)
@@ -734,7 +875,13 @@ function rotate() {
     commit();
   }
 }
-function mirror() { const s = selected(); if (s && s.type === "sym") { s.flip = !s.flip; commit(); } }
+function mirror() {
+  const s = selected(); if (!(s && s.type === "sym")) return;
+  const sp = symOf(s).ports, io = sp.length >= 2 && Math.abs(sp[1][1] - sp[0][1]) < 0.5 ? portsOf(s) : null;
+  s.flip = !s.flip;
+  if (io) { const n = portsOf(s); s.x = r2(s.x + io[0][0] - n[1][0]); s.y = r2(s.y + io[0][1] - n[1][1]); }   // in and out swap places
+  commit();
+}
 
 // ---------------------------------------------------------------- pointer input
 const cv = $("cv");
@@ -792,8 +939,12 @@ cv.addEventListener("pointerdown", e => {
       selectIds(on ? ui.set.filter(i => !ids.includes(i)) : [...ui.set, ...ids]);
     } else if (!(ui.set.length > 1 && ui.set.includes(id))) selectIds(ids);
     const move = selItems();
-    if (move.length) ui.drag = { kind: "move", id: move.length === 1 ? move[0].id : null, ids: move.map(i => i.id), start: w,
-      orig: Object.fromEntries(move.map(i => [i.id, JSON.stringify(i)])), moved: false };
+    if (move.length) {
+      const att = attachedPipes(move.filter(i => i.type === "sym").map(i => i.id));
+      ui.drag = { kind: "move", id: move.length === 1 ? move[0].id : null, ids: move.map(i => i.id), start: w,
+        orig: Object.fromEntries(move.map(i => [i.id, JSON.stringify(i)])), moved: false,
+        skip: new Set([...move.map(i => i.id), ...att]), free: move.length === 1 && !att.size && canInline(move[0]) };
+    }
     refresh();
     return;
   }
@@ -818,18 +969,18 @@ cv.addEventListener("pointermove", e => {
     v = Math.max(fd.min, Math.min(fd.max, Math.round(v / st) * st));
     it.prm = Object.assign({}, it.prm, { [d.gp.k]: Math.round(v * 100) / 100 });
     const q = symXform(it)([0, 0]); it.x += d.anchor[0] - q[0]; it.y += d.anchor[1] - q[1];
-    d.moved = true; draw(); panel(); return;
+    reconnect(); d.moved = true; draw(); panel(); return;
   }
   if (d.kind === "move" && d.ids.length > 1) {              // several items move together, on the grid or onto a connection
     const dx = w[0] - d.start[0], dy = w[1] - d.start[1], items = d.ids.map(i => doc.items.find(q => q.id === i)).filter(Boolean);
     items.forEach(it => shiftItem(it, JSON.parse(d.orig[it.id]), dx, dy));
-    const tol = 11 / ui.view.s, targets = snapTargets(new Set(d.ids)), mine = [];
+    const tol = 11 / ui.view.s, targets = snapTargets(d.skip), mine = [];
     for (const it of items) { if (it.type === "sym") mine.push(...portsOf(it)); if (it.type === "pipe") mine.push(it.pts[0], it.pts[it.pts.length - 1]); }
     let best = null, bd = tol;
     for (const p of mine) for (const t of targets) { const q = Math.hypot(t[0] - p[0], t[1] - p[1]); if (q < bd) { bd = q; best = [t[0] - p[0], t[1] - p[1]]; } }
     const sx = best ? dx + best[0] : gridSnap(dx), sy = best ? dy + best[1] : gridSnap(dy);
     items.forEach(it => shiftItem(it, JSON.parse(d.orig[it.id]), sx, sy));
-    d.moved = true; draw(); return;
+    reconnect(); d.moved = true; draw(); return;
   }
   const it = doc.items.find(i => i.id === d.id); if (!it) return;
   d.moved = true;
@@ -844,8 +995,13 @@ cv.addEventListener("pointermove", e => {
     if (it.type === "pipe") { const sx = gridSnap(dx), sy = gridSnap(dy); it.pts = o.pts.map(p => [p[0] + sx, p[1] + sy]); }
     else if (it.type === "arrow") { it.a = [o.a[0] + dx, o.a[1] + dy]; it.b = [o.b[0] + dx, o.b[1] + dy]; }
     else if (it.type === "dim") { const sx = gridSnap(dx), sy = gridSnap(dy); it.a = [o.a[0] + sx, o.a[1] + sy]; it.b = [o.b[0] + sx, o.b[1] + sy]; }
-    else { it.x = o.x + dx; it.y = o.y + dy; if (it.type === "sym") snapSym(it); else { it.x = gridSnap(it.x); it.y = gridSnap(it.y); } }
+    else {
+      it.x = o.x + dx; it.y = o.y + dy;
+      if (it.type === "sym") { const hit = snapSym(it, d.skip); d.inline = d.free && !hit ? findInline(it, d.skip) : null; }
+      else { it.x = gridSnap(it.x); it.y = gridSnap(it.y); }
+    }
   }
+  reconnect();
   draw();
 });
 function endDrag() {
@@ -857,6 +1013,10 @@ function endDrag() {
       selectIds([...d.base, ...hit.flatMap(i => groupOf(i).map(q => q.id))]);
     }
     refresh(); return;
+  }
+  if (d && d.moved && d.kind === "move" && d.inline) {
+    const it = doc.items.find(i => i.id === d.id);
+    if (it && applyInline(it, d.inline)) { commit(); say("Cut into the pipe. Mirror (M) turns it round if the flow runs the other way.", "ok"); return; }
   }
   if (d && d.moved && d.kind !== "pan") commit(); else draw();
 }
@@ -872,6 +1032,8 @@ window.addEventListener("keydown", e => {
   else if ((k === "delete" || k === "backspace") && ui.set.length) { e.preventDefault(); del(); }
   else if (mod && k === "g") { e.preventDefault(); if (e.shiftKey) ungroup(); else group(); }
   else if (mod && k === "a") { e.preventDefault(); setTool("select"); selectIds(doc.items.filter(valid).map(i => i.id)); refresh(); }
+  else if (mod && (k === "c" || k === "x") && ui.set.length) { e.preventDefault(); copySel(k === "x"); }
+  else if (mod && k === "v") { e.preventDefault(); paste(); }
   else if (ui.tool === "pipe" && ui.draft && !mod && /^[0-9.]$/.test(e.key)) { e.preventDefault(); const r = $("runLen"); r.focus(); r.value += e.key; }
   else if (mod && k === "z") { e.preventDefault(); step(e.shiftKey ? 1 : -1); }
   else if (mod && k === "y") { e.preventDefault(); step(1); }
@@ -923,7 +1085,7 @@ $("openBtn").addEventListener("click", () => $("openFile").click());
 $("openFile").addEventListener("change", e => {
   const f = e.target.files[0]; if (!f) return;
   const r = new FileReader();
-  r.onload = () => { try { const d = JSON.parse(r.result); if (d && d.sdgProject) { importProject(d, f.name); return; } loadDoc(d); proj.cur = {}; projSave(); fit(); commit(); say(`Opened ${f.name}`, "ok"); } catch (err) { say("That file isn't a drawing saved from this page.", "warn"); } };
+  r.onload = () => { try { const d = JSON.parse(r.result); if (d && d.sdgProject) { importProject(d, f.name); return; } if (d && d.sdgAssemblies) { importAssemblies(d); return; } loadDoc(d); proj.cur = {}; projSave(); fit(); commit(); say(`Opened ${f.name}`, "ok"); } catch (err) { say("That file isn't a drawing saved from this page.", "warn"); } };
   r.readAsText(f); e.target.value = "";
 });
 let clearArmed = 0;
@@ -1051,10 +1213,116 @@ $("projFile").addEventListener("change", e => {
   r.readAsText(f); e.target.value = "";
 });
 
+// ---------------------------------------------------------------- copy, paste and saved assemblies
+// Both keep items with positions measured from the middle of what was copied, so they can be put down anywhere.
+// They live in this browser's storage, so they carry across drawings, projects and tabs (not across computers:
+// export assemblies for that).
+function packItems(items) {
+  const B = items.map(bboxOf), c = [gridSnap((Math.min(...B.map(q => q[0])) + Math.max(...B.map(q => q[2]))) / 2), gridSnap((Math.min(...B.map(q => q[1])) + Math.max(...B.map(q => q[3]))) / 2)];
+  return items.map(it => { const o = JSON.parse(JSON.stringify(it)), q = JSON.parse(JSON.stringify(it)); delete q.id; shiftItem(q, o, -c[0], -c[1]); return q; });
+}
+// put packed items down around (cx, cy); asGroup makes them one group, otherwise their own groups are kept (renumbered)
+function placeItems(list, asGroup, at) {
+  const c = at || [gridSnap(ui.view.cx), gridSnap(ui.view.cy)], gm = new Map(), g0 = nextGrp(), ids = [];
+  const one = asGroup && list.length > 1 ? g0 : null;
+  for (const src of list) {
+    const it = JSON.parse(JSON.stringify(src)), o = JSON.parse(JSON.stringify(src)); it.id = nextId++;
+    if (one) it.grp = one; else if (it.grp) { if (!gm.has(it.grp)) gm.set(it.grp, g0 + gm.size); it.grp = gm.get(it.grp); }
+    shiftItem(it, o, c[0], c[1]);
+    if (it.type === "pipe" && !PIPE[it.nps]) continue;
+    if (it.type === "sym" && !valid(it)) continue;           // a product this copy of the page doesn't have
+    doc.items.push(it); ids.push(it.id);
+  }
+  ui.tool = "select"; ui.draft = null; selectIds(ids); commit();
+  return ids.length;
+}
+const CLIP = "sdg-clip"; let clipMem = null;
+function readClip() { let d = null; try { d = JSON.parse(localStorage.getItem(CLIP)); } catch (e) {} d = d || clipMem; return d && Array.isArray(d.items) && d.items.length ? d : null; }
+function copySel(cut) {
+  const m = selItems().filter(valid); if (!m.length) return;
+  const data = { v: 1, items: packItems(m) }; clipMem = data;
+  try { localStorage.setItem(CLIP, JSON.stringify(data)); } catch (e) {}
+  ui.pasteAt = null;
+  if (cut) del();
+  say(`${cut ? "Cut" : "Copied"} ${m.length} item${m.length === 1 ? "" : "s"}. Ctrl+V pastes into this drawing or any other.`, "ok");
+  panel();
+}
+function paste() {
+  const d = readClip(); if (!d) { say("Nothing copied yet. Select items and press Ctrl+C.", "warn"); return; }
+  // paste in the middle of the view; pasting again without moving the view steps each copy down and right
+  const c = [gridSnap(ui.view.cx), gridSnap(ui.view.cy)], pa = ui.pasteAt;
+  const n = pa && pa.c[0] === c[0] && pa.c[1] === c[1] ? pa.n + 1 : 0; ui.pasteAt = { c, n };
+  const k = placeItems(d.items, false, [c[0] + n * 20, c[1] + n * 20]);
+  say(k < d.items.length ? `Pasted ${k} of ${d.items.length} items. The rest are products this page doesn't have.` : `Pasted ${k} item${k === 1 ? "" : "s"}.`, k < d.items.length ? "warn" : "ok");
+}
+
+const AKEY = "sdg-assemblies";
+const asm = (() => { try { const a = JSON.parse(localStorage.getItem(AKEY)); if (a && Array.isArray(a.list)) return Object.assign({ rev: 0 }, a); } catch (e) {} return { v: 1, rev: 0, list: [] }; })();
+function asmSave() {
+  asm.rev++;
+  try { localStorage.setItem(AKEY, JSON.stringify(asm)); return true; }
+  catch (e) { say("Browser storage is full. Export your assemblies and delete some to make room.", "warn"); return false; }
+}
+function saveAssembly() {
+  const m = selItems().filter(valid); if (!m.length) return;
+  const name = freeName(asm.list, $("asmName").value.trim() || `Assembly ${asm.list.length + 1}`);
+  asm.list.push({ id: uid(), name, created: Date.now(), items: packItems(m) });
+  if (asmSave()) say(`Saved "${name}" to My assemblies (in the product list). Click it there to add it to any drawing.`, "ok");
+  ui.pick.family = MYASM;
+  $("asmName").value = ""; panel();
+}
+function asmThumb(items) {
+  const its = items.map((o, j) => Object.assign({}, o, { id: -1 - j })).filter(valid); if (!its.length) return "";
+  const B = its.map(bboxOf), b = [Math.min(...B.map(q => q[0])), Math.min(...B.map(q => q[1])), Math.max(...B.map(q => q[2])), Math.max(...B.map(q => q[3]))];
+  const pad = Math.max(b[2] - b[0], b[3] - b[1]) * 0.04;
+  const body = [...its.filter(i => i.type === "pipe"), ...its.filter(i => i.type !== "pipe")].map(itemSvg).join("");
+  return `<svg viewBox="${b[0] - pad} ${b[1] - pad} ${b[2] - b[0] + 2 * pad} ${b[3] - b[1] + 2 * pad}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${body}</svg>`;
+}
+let asmDrawn = -1;
+function asmPanel() {
+  if (asmDrawn === asm.rev) return; asmDrawn = asm.rev;
+  const box = $("asmList"); box.innerHTML = "";
+  $("asmEmpty").hidden = asm.list.length > 0; $("asmExport").disabled = !asm.list.length;
+  gradN = 3000;
+  asm.list.forEach(a => {
+    const w = document.createElement("div"); w.className = "asm";
+    w.innerHTML = `<button type="button" class="prod" title="Add to the drawing">${asmThumb(a.items)}<span></span></button>` +
+      `<div class="asm-act"><button type="button" class="link" data-a="ren">Rename</button><button type="button" class="link" data-a="del">Delete</button></div>`;
+    w.querySelector("span").textContent = a.name;
+    w.querySelector(".prod").addEventListener("click", () => {
+      const k = placeItems(a.items, true);
+      say(k < a.items.length ? `Added ${a.name}, but ${a.items.length - k} item(s) are products this page doesn't have.` : `Added ${a.name}. Drag it into place; it snaps onto pipe and connections.`, k < a.items.length ? "warn" : "ok");
+    });
+    w.querySelector('[data-a="ren"]').addEventListener("click", () => { const n = prompt("Assembly name", a.name); if (n && n.trim()) { a.name = n.trim(); asmSave(); panel(); } });
+    w.querySelector('[data-a="del"]').addEventListener("click", () => { if (confirm(`Delete the assembly "${a.name}"? Drawings that use it keep their copy.`)) { asm.list = asm.list.filter(x => x !== a); asmSave(); panel(); } });
+    box.appendChild(w);
+  });
+}
+function importAssemblies(data) {
+  const list = (data.list || []).filter(a => a && Array.isArray(a.items) && a.items.length);
+  list.forEach(a => asm.list.push({ id: uid(), name: freeName(asm.list, a.name || "Assembly"), created: a.created || Date.now(), items: a.items }));
+  asmSave(); panel(); say(`Imported ${list.length} assembl${list.length === 1 ? "y" : "ies"}.`, "ok");
+}
+$("asmSave").addEventListener("click", saveAssembly);
+$("asmName").addEventListener("keydown", e => { if (e.key === "Enter") saveAssembly(); });
+$("asmExport").addEventListener("click", () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ sdgAssemblies: 1, exported: new Date().toISOString(), list: asm.list })], { type: "application/json" }));
+  a.download = "my-assemblies.sdgasm.json"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  say("Exported your assemblies to your downloads folder.", "ok");
+});
+$("asmImport").addEventListener("click", () => $("asmFile").click());
+$("asmFile").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return; const r = new FileReader();
+  r.onload = () => { try { const d = JSON.parse(r.result); if (!d || !d.sdgAssemblies) throw new Error("bad"); importAssemblies(d); } catch (err) { say("That file isn't an assemblies file saved from this page.", "warn"); } };
+  r.readAsText(f); e.target.value = "";
+});
+$("bCopy").addEventListener("click", () => copySel(false)); $("bPaste").addEventListener("click", paste);
+
 // ---------------------------------------------------------------- wiring
 [["tSelect", "select"], ["tPipe", "pipe"], ["tText", "text"], ["tArrow", "arrow"], ["tDim", "dim"]].forEach(([id, t]) => $(id).addEventListener("click", () => setTool(t)));
 $("addBtn").addEventListener("click", addProduct);
-$("bGroup").addEventListener("click", group); $("bUngroup").addEventListener("click", ungroup);
+$("bGroup").addEventListener("click", () => { if ($("bGroup").textContent === "Ungroup") ungroup(); else group(); });
 $("runLen").addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); const t = e.target.value.trim(); if (!t) { finishPipe(); e.target.blur(); return; }
     const L = parseLen(t); if (L) { typedRun(L); e.target.value = ""; } else say(`"${t}" isn't a length I can read. Try 24, 2'-6" or 600mm.`, "warn"); }

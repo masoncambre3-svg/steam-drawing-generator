@@ -63,9 +63,9 @@ th:first-child, td:first-child { text-align: left; } th { font-weight: 500; colo
 .meta { font-size: 13px; color: var(--muted); } .meta b { color: var(--ink); font-weight: 600; }
 
 .stage { display: flex; flex-direction: column; min-width: 0; }
-.toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line); align-items: center; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 10px; border-bottom: 1px solid var(--line); align-items: center; }
 .toolbar .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 3px; }
-.tool { padding: 6px 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); font-size: 13px; font-weight: 600; }
+.tool { padding: 6px 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); font-size: 13px; font-weight: 600; }
 .tool[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .tool:disabled { opacity: 0.45; cursor: default; }
 .board { position: relative; height: min(72vh, 760px); min-height: 380px; background: var(--paper); overflow: hidden; }
@@ -104,3 +104,10 @@ dialog > .hint { padding: 0 16px 14px; }
 .list .dn { flex: 1; min-width: 0; display: flex; flex-direction: column; } .list .dn span { font-weight: 600; overflow-wrap: anywhere; }
 .btn.sm { padding: 4px 8px; font-size: 12px; }
 .eq label { min-width: 120px; } .eq input[type="text"] { width: 110px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+#asmName { flex: 1 1 100%; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.asm { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.asm .prod { width: 100%; }
+.asm-act { display: flex; justify-content: center; gap: 8px; }
+.link { border: 0; background: none; padding: 0; font-size: 11.5px; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.link:hover { color: var(--accent); }
+.asm .prod svg { height: 60px; }

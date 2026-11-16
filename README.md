@@ -52,6 +52,15 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
   the real unit. Select one and drag the blue diamonds to stretch it. Hidden parts (tube bundle, coil in the tank,
   vessel wall inside the jacket) are dashed. Every nozzle is a connection point. To add another piece of equipment,
   add a builder and an entry to EQUIP in that file; app.js picks it up.
+- Pipe stays connected: a pipe end sitting on a product connection follows the product when it is moved, rotated,
+  mirrored, resized or stretched. The run next to the product keeps its direction and the turn before it slides.
+  A pipe you move or edit yourself is left where you put it. Changing a run length moves a product on the far end.
+- Drop onto a pipe: drag a trap, strainer, valve, reducer or tee onto a pipe run (it highlights), let go, and the
+  pipe is cut and both sides connect. It faces the way the pipe was drawn; Mirror (M) turns it round.
+- Copy and paste: Ctrl+C / Ctrl+X / Ctrl+V (or the Copy and Paste buttons) work across drawings, projects and tabs
+  in the same browser. Paste lands in the middle of the view.
+- My assemblies: select several items, name them and click "Save as assembly". They show under "My assemblies" in
+  the product list; click one to add it as a group. Export / Import moves them to another computer.
 - Projects: save drawings by name into projects (kept in the browser). The open drawing saves as you work.
   Export a project to one .json file to back it up or move it; Import or Open reads it back.
 - Spirax Sarco logo: tick it on any product, then pick on the body, above or below, and the size.

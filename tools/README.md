@@ -88,3 +88,17 @@ Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for
 - `ports`: inlet first, outlet second. A third port with a direction in degrees is a drain (strainer cap).
 - Default color is blue; the app recolors, so packs carry geometry only.
 - Flanged products: flange diameter from ASME B16.5 when the TI does not give it. Say so in `note`.
+
+## Editor notes (sticky pipe, drop-inline, assemblies)
+
+- Sticky connections are worked out from positions, not stored links: `takeSnap()` records every product's
+  connection points and every pipe's points at each commit/load; `reconnect()` moves pipe ends that were on a
+  connection that has since moved. A pipe whose points changed for any other reason is left alone. Tolerance is
+  0.6 mm (`CTOL`), so pipe ends must be snapped exactly onto connections (snapping already does this).
+- Drop-inline uses the first two ports of a product as in and out. It only offers itself when those two are
+  straight through (the line between them is horizontal or vertical in the pack's own coordinates) and the product
+  has at most 3 ports. **Keep "in" then "out" as the first two ports in every new pack** so new products get it.
+- Mirror swaps in and out in place for products whose in and out are level (same y in the pack), so an inline
+  product stays on its pipe.
+- Assemblies (`sdg-assemblies`) and the clipboard (`sdg-clip`) are in localStorage with positions relative to the
+  middle of what was saved. A product missing from the library on paste is skipped with a warning.

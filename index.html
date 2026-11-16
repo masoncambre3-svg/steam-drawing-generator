@@ -17,10 +17,19 @@
       <div class="group" id="gSel" hidden>
         <h2 id="selTitle">Selection</h2>
         <p class="hint" id="selHint"></p>
+        <div class="row"><input type="text" id="asmName" placeholder="Assembly name, e.g. 3/4&quot; trap station" autocomplete="off"></div>
+        <button class="btn wide" id="asmSave" type="button">Save as assembly</button>
       </div>
       <div class="group" id="gProduct">
         <h2 id="prodTitle">Add a product</h2>
         <div class="chips" id="families"></div>
+        <div id="asmBody" class="stack" hidden>
+          <p class="hint" id="asmEmpty">Select a few items (Shift+drag a box), name them and save them as an assembly. They show here, ready to add to any drawing.</p>
+          <div class="products" id="asmList"></div>
+          <div class="row"><button class="btn" id="asmExport" type="button">Export</button><button class="btn" id="asmImport" type="button">Import</button>
+            <input type="file" id="asmFile" accept=".json,application/json" hidden></div>
+        </div>
+        <div id="prodBody">
         <div class="products" id="products"></div>
         <div class="meta" id="prodmeta"></div>
         <div class="row"><label id="sizeLabel">Size</label></div>
@@ -41,6 +50,7 @@
         <button class="btn primary wide" id="addBtn" type="button">Add to drawing</button>
         <table id="dims"></table>
         <p class="hint" id="prodNote" hidden></p>
+        </div>
       </div>
       <div class="group" id="gPipe">
         <h2 id="pipeTitle">Pipe</h2>
@@ -104,9 +114,10 @@
         <button class="tool" id="bRot" type="button">Rotate</button>
         <button class="tool" id="bFlip" type="button">Mirror</button>
         <button class="tool" id="bDup" type="button">Duplicate</button>
+        <button class="tool" id="bCopy" type="button" title="Ctrl+C">Copy</button>
+        <button class="tool" id="bPaste" type="button" title="Ctrl+V">Paste</button>
         <button class="tool" id="bDel" type="button">Delete</button>
-        <button class="tool" id="bGroup" type="button" title="Ctrl+G">Group</button>
-        <button class="tool" id="bUngroup" type="button" title="Ctrl+Shift+G">Ungroup</button>
+        <button class="tool" id="bGroup" type="button" title="Group: Ctrl+G. Ungroup: Ctrl+Shift+G">Group</button>
         <span class="sep"></span>
         <button class="tool" id="bUndo" type="button">Undo</button>
         <button class="tool" id="bRedo" type="button">Redo</button>

@@ -33,6 +33,20 @@
    ]
   },
   {
+   "slug": "check-valves",
+   "name": "Check valves",
+   "products": [
+    "DCV41",
+    "DCV10",
+    "SDCV44",
+    "LCV",
+    "LCV-FL",
+    "LCV-PN",
+    "CVS10",
+    "SIGHTCHECK"
+   ]
+  },
+  {
    "slug": "pumps",
    "name": "Pumps",
    "products": [

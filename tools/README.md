@@ -39,7 +39,12 @@ Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for
 - `manifolds.py`  MSC / MSD manifolds; station count made by repeating 4-station header blocks (see below)
 - `separators.py` S5 / S6 (traced; caps keep drawn size, body to H, plugs slid to B and C, nozzles to A) and
                   S4A / S4A-FL (hand-built from helper shapes, all sizes from the TI table)
+- `checkvalves.py` DCV41, DCV10, SDCV44, CVS10, Sight Check, LCV (three packs: screwed / SW, ASME flanged, PN flanged)
 - `make_packs.py` writes packs, previews, catalog and index
+- `sheet.py`      every size of one family on one sheet (`python3 tools/sheet.py check-valves /tmp/cv`), for the check
+                  before handing over and for the preview image the user asks for
+- `apptest.py`    opens index.html from disk in headless Chrome (playwright) and adds every size and variant of one family
+                  through the picker; reports load failures, picks the panel would not take and page errors
 - `catalog.json`  families and product order shown in the app
 - `sources.py`    where the source PDFs are for this session
 
@@ -81,6 +86,32 @@ Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for
 - Still to do from TI-P115-03-US: 1-1/2" header and Class 300 flanges (only the drawn 2" Class 150 flange is
   shown), the bare-body side view on p6, and the no-trap MSC. UFT32 connectors (PC10HP, PC20, PC3_, PC4_)
   need TI-P128.
+
+- Check valves (TI-P601-18, P601-32-US, P154-10-US, P029-16, P029-21, P022-01), 2026-11-16:
+  - Read landmarks (faces, centreline, extents) from the vectors, not from a refgrid picture: print each collected chain's
+    bbox (`np.vstack([T.flat(sg) for sg in segs])`). Reading the grid picture was off by several points more than once.
+  - `collect()` only keeps a chain whose bbox sits inside the clip (+0.5 pt). A top edge drawn in one stroke with a
+    dimension extension line drops out silently (SDCV44 top at y 624.7; LCV flanged left raised face at x 327.25).
+    Compare the collected extents with the picture before mapping.
+  - Several of these drawings are not to scale (DCV10: the face to face comes out 30% short if x and y share a scale).
+    Scale along and across the pipe separately and set each from the table.
+  - Wafer and sanitary valves (DCV10, SDCV44, CVS10) are drawn with the flow up the page. They are turned with
+    X = (y_inlet - y) * k, Y = (x - x_centre) * k (a true rotation, not a mirror), so the TI flow arrow ends up pointing +x.
+  - SDCV44 radii are mapped piecewise (bore C, recess D, body A from the table); the hinge pin and plug stay round.
+  - Sight Check: the TI drawing cannot hit B and C at once (the tube would run into the body). A, B and D are exact; the
+    tube and cap are one piece scaled to fit B, so C comes out short. Said in the product note.
+  - CVS10: clamp lips keep their drawn shape and the body between them stretches to A (the 1/2" is 40 long and 25 across).
+  - LCV table on p10 has merged cells. Check which rows a value spans from the word positions
+    (`page.get_text('words')`, compare y with the row labels): ASME 125 and ASME 150 7-1/4" covers 1/2" to 1".
+  - Packs cannot have a different variant list per size (`variantsFor` exists only for the built-in fittings in app.js),
+    so LCV is three packs: screwed / SW (1/2"-2"), ASME flanged (no 1-1/4"), PN flanged (1/2"-4" incl. 1-1/4").
+  - The product button shows `name.split(" /")[0]`; keep that part different for every product in a family.
+  - LCV flanged: flange chains (by x range) scale about the centreline to the flange OD (ASME B16.5, EN 1092-1); the body
+    scales with A below the neck and stretches above it so the bolt tops land on B.
+  - Not done from these sheets: LCV with JIS / KS flanges, DCV10 PN25 (no dimensions on the US sheet), the SDCV44 and
+    DCV10 end elevations.
+  - App test: `python3 tools/apptest.py "Check valves"` placed all 109 symbols with no errors. After each add it calls
+    `selectIds([]); refresh(); panel()` so the picker comes back (Escape does not reset it).
 
 ## Conventions the app relies on
 

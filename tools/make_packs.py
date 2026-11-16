@@ -219,8 +219,24 @@ def build_manifolds(only=None):
                         note=d["note"]), syms)
 
 
+def build_checkvalves(only=None):
+    import checkvalves as CV
+    for model, d in CV.DATA.items():
+        if only and only != model:
+            continue
+        syms = {}
+        for size in d["sizes"]:
+            for v in d["variants"]:
+                s = CV.Valve(model, size, v)
+                syms[f"{model}|{size}|{v}"] = parts(s, s.arrow)
+        write_pack("check-valves", "Check valves", model,
+                   dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
+                        variantLabel="Connection", source="Traced from the TI outline drawing", note=d["note"]), syms)
+
+
 BUILDERS = {"steam-traps": build_traps, "strainers": build_strainers, "valves": build_valves, "pumps": build_pumps,
-            "separators": build_separators, "manifolds": build_manifolds}
+            "separators": build_separators, "manifolds": build_manifolds,
+            "check-valves": build_checkvalves}
 
 if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if not a.startswith("--")]

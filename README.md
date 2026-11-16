@@ -21,6 +21,7 @@ products/
   steam-traps/<ID>/<ID>.js one product per folder, plus preview.png
   strainers/<ID>/<ID>.js
   valves/<ID>/<ID>.js
+  check-valves/<ID>/<ID>.js
   pumps/<ID>/<ID>.js
   separators/<ID>/<ID>.js
   manifolds/<ID>/<ID>.js
@@ -73,6 +74,7 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
 | Steam traps | TD52, TD62M / TD62LM, FT450, IBV Series C, BPC32Y, SMC32Y, UFT32 (trap unit) |
 | Strainers | Fig 16HP, Fig 16L, Fig 34, Fig 34HP, Fig 36, Fig 36HP |
 | Valves | A3S / A3SS |
+| Check valves | DCV41, DCV10, SDCV44, LCV3/4/6/7 (screwed / SW, ASME flanged, PN flanged), CVS10, Sight Check |
 | Pumps | PTF / PTF-SS (2" x 2", 3" x 2"), PTF Top Inlet (3" x 3") |
 | Separators | S5, S6 (1/2" to 2"), S4A (1/2" to 2" screwed/SW), S4A flanged (2-1/2" to 18") |
 | Manifolds | MSC condensate collection, MSD steam distribution (4, 8, 12, 16 stations, with or without stand) |

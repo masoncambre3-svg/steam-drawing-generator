@@ -72,7 +72,7 @@ const PRESETS = [["Blue", "#3f86dc"], ["Navy", "#1f3f73"], ["Steel grey", "#8d99
                  ["Orange", "#e58a2b"], ["Yellow", "#e9c53c"], ["Green", "#3f9a5f"], ["White", "#f2f4f7"]];
 const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
-const BUILD = "10";
+const BUILD = "11";
 const LOGO = window.SDG_LOGO || null;                       // vector Spirax Sarco logo, app/logo.js
 const STYLE0 = { shade: true, blackLines: false, units: "ftin", prec: 1 };
 const UNITS = [["ftin", "ft-in"], ["in", "in"], ["mm", "mm"]];
@@ -1027,6 +1027,7 @@ cv.addEventListener("wheel", e => { e.preventDefault(); zoom(e.deltaY < 0 ? 1.15
 window.addEventListener("keydown", e => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
   const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  if (e.key === "?" && !mod) { e.preventDefault(); keysDialog(); return; }
   if (k === "escape") { if (ui.draft) { ui.draft = null; ui.cursor = null; draw(); } else setTool("select"); }
   else if (k === "enter" && ui.tool === "pipe") finishPipe();
   else if ((k === "delete" || k === "backspace") && ui.set.length) { e.preventDefault(); del(); }
@@ -1318,6 +1319,29 @@ $("asmFile").addEventListener("change", e => {
   r.readAsText(f); e.target.value = "";
 });
 $("bCopy").addEventListener("click", () => copySel(false)); $("bPaste").addEventListener("click", paste);
+
+// ---------------------------------------------------------------- shortcuts sheet (? key)
+// Keep this list in step with the keydown handler above.
+const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+const KEYS = [
+  ["Tools", [["V", "Select"], ["P", "Pipe"], ["T", "Text"], ["D", "Dimension"], ["Esc", "Cancel what you're drawing, or back to Select"]]],
+  ["Editing", [["R", "Rotate"], ["M", "Mirror"], ["Delete|Backspace", "Delete"],
+    ["Ctrl+D", "Duplicate"], ["Ctrl+A", "Select everything"], ["Ctrl+G", "Group"], ["Ctrl+Shift+G", "Ungroup"]]],
+  ["Copy and undo", [["Ctrl+C", "Copy, works across drawings"], ["Ctrl+X", "Cut"], ["Ctrl+V", "Paste"],
+    ["Ctrl+Z", "Undo"], ["Ctrl+Y|Ctrl+Shift+Z", "Redo"]]],
+  ["Drawing a pipe", [["0-9", "Type a run length, then Enter to place it"], ["Enter", "Finish the pipe"], ["Alt", "Hold for any angle, not just 45° steps"],
+    ["Double-click", "Finish the pipe"]]],
+  ["Mouse", [["Shift+Click", "Add to or take out of the selection"], ["Shift+Drag", "Box-select on empty sheet"], ["Alt+Click", "Pick one item inside a group"],
+    ["Drag", "Drop a trap, strainer or valve onto a pipe to cut it in"], ["Scroll", "Zoom"], ["?", "This list"]]],
+];
+function keysDialog() {
+  const kb = combo => combo.split("+").map(k => `<kbd>${esc(MAC ? k.replace("Ctrl", "⌘").replace("Alt", "⌥").replace("Shift", "⇧") : k)}</kbd>`).join("+").replace(/^/, '<span class="combo">') + "</span>";
+  $("keysBody").innerHTML = KEYS.map(([h, rows]) => `<section><h3>${esc(h)}</h3><dl>` +
+    rows.map(([k, d]) => `<dt>${k.split("|").map(kb).join(" or ")}</dt><dd>${esc(d)}</dd>`).join("") + `</dl></section>`).join("");
+  $("keysDlg").showModal();
+}
+$("bKeys").addEventListener("click", keysDialog);
+$("keysClose").addEventListener("click", () => $("keysDlg").close());
 
 // ---------------------------------------------------------------- wiring
 [["tSelect", "select"], ["tPipe", "pipe"], ["tText", "text"], ["tArrow", "arrow"], ["tDim", "dim"]].forEach(([id, t]) => $(id).addEventListener("click", () => setTool(t)));

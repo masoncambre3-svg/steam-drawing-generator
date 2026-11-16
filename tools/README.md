@@ -102,3 +102,5 @@ Needs: Python 3 with `pymupdf`, `opencv-python`, `numpy`; and `rsvg-convert` for
   product stays on its pipe.
 - Assemblies (`sdg-assemblies`) and the clipboard (`sdg-clip`) are in localStorage with positions relative to the
   middle of what was saved. A product missing from the library on paste is skipped with a warning.
+- The shortcuts sheet (? key) is built from the KEYS list in app.js. Add a line there whenever a shortcut is added
+  to the keydown handler.

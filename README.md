@@ -57,6 +57,7 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
   A pipe you move or edit yourself is left where you put it. Changing a run length moves a product on the far end.
 - Drop onto a pipe: drag a trap, strainer, valve, reducer or tee onto a pipe run (it highlights), let go, and the
   pipe is cut and both sides connect. It faces the way the pipe was drawn; Mirror (M) turns it round.
+- Press ? (or the ? button at the end of the toolbar) for the list of keyboard shortcuts.
 - Copy and paste: Ctrl+C / Ctrl+X / Ctrl+V (or the Copy and Paste buttons) work across drawings, projects and tabs
   in the same browser. Paste lands in the middle of the view.
 - My assemblies: select several items, name them and click "Save as assembly". They show under "My assemblies" in

@@ -125,6 +125,7 @@
         <button class="tool" id="bOut" type="button" aria-label="Zoom out">−</button>
         <button class="tool" id="bIn" type="button" aria-label="Zoom in">+</button>
         <button class="tool" id="bFit" type="button">Fit</button>
+        <button class="tool" id="bKeys" type="button" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
       </div>
       <div class="board t-select" id="board">
         <svg id="cv" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Drawing sheet"></svg>
@@ -167,6 +168,11 @@
     </section>
   </div>
   <p class="hint">Projects live in this browser, on this computer. The open drawing saves to its project as you work. Export a project to back it up or move it to another computer, then Import it there.</p>
+</dialog>
+<dialog id="keysDlg" aria-labelledby="keysTitle">
+  <div class="dlg-head"><h2 id="keysTitle">Keyboard shortcuts</h2><button class="btn" id="keysClose" type="button">Close</button></div>
+  <div class="keys" id="keysBody"></div>
+  <p class="hint">Shortcuts don't work while you're typing in a box on the panel. Press ? any time to open this list.</p>
 </dialog>
 <script src="app/loader.js"></script>
 </body>

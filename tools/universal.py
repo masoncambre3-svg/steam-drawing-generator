@@ -384,34 +384,53 @@ N_90 = ("Trap unit only, side view as the TI draws it. The PC90 4-bolt connector
         "centreline, read from the TI's view of the trap on its connector. ")
 DATA["USM90"] = {
     "name": "USM90", "type": "Bimetallic, sealed stainless, for PC90 4-bolt connector", "ti": "TI-P805-01",
-    "sizes": {"USM90": dict(A=115, B=79, C=64, D=67)}, "variants": ["Front view, on connector", "Side view"],
+    "sizes": {"USM90": dict(A=115, B=79, C=64, D=67)}, "variants": ["Front view, on connector"],
     "sizeLabel": "Model", "variantLabel": "View",
-    "note": "Front view, on connector: the trap as seen from the front of a PC90 (the PC90 pack's view), so it sits over "
-            "the connector. The connection point is the centre of the four connector bolts; the PC90 front view has the "
-            "same point (54 from the inlet, 5.5 below the pipe centreline), so the trap snaps on. Built from the TI's end "
-            "view (D, the flange face): the body (C 64) is in front and hides the spigot, the top bolt holes and the "
-            "middle of the flange; the flange outline (D 67) and the lower bolt holes show around it. The TI does not "
-            "draw the trap from this side, so the end of the body is drawn as a plain circle. Bolt spacing 44.9 on the "
-            "TI drawing against 44.6 on the PC90's: within drawing accuracy. "
-            "Side view: " + N_90 + "Length A (connector face to the end of the body), height B (top of the body to the bottom of the "
-            "flange) and body diameter C are from the TI table; the TI drawing is about 5% longer than it is tall, so "
-            "x and y are set separately. Withdrawal distances E (80, connector bolts) and F (85, cap screws and screen) "
-            "are not drawn.",
+    "note": "Front view from Spirax's 2D CAD of the USM90 (front DWG, visible edges only), 1:1: the trap seen from its "
+            "connector side, four connector bolts on a 44.5 square round the spigot, body C 64 round above it. The one "
+            "connection point is the centre of the four bolts (= spigot centre), the same point as the PC90 front view's "
+            "trap point (54 from the inlet, 5.5 below the pipe centreline), so it snaps on. CAD: flange 66.5 (D 67), "
+            "top of the body to the bottom of the flange 79.7 (B 79), spigot face to body end 114.3 (A 115). Replaces the "
+            "TI-built front view and the side view (2026-11-17); _usm90 / _usm90_front still build those from TI-P805-01.",
 }
 DATA["UTDS90"] = {
     "name": "UTDS90", "type": "Thermodynamic with strainer, stainless, for PC90 4-bolt connector", "ti": "TI-P804-01",
-    "sizes": {"UTDS90": dict(A=94, B=64, C=67, D=119)}, "variants": ["Front view, on connector", "Side view"],
+    "sizes": {"UTDS90": dict(A=94, B=64, C=67, D=119)}, "variants": ["Front view, on connector"],
     "sizeLabel": "Model", "variantLabel": "View",
-    "note": "Front view, on connector: TI-P804-01 does not draw the trap from this side, so this view is a best guess "
-            "built from the side view. Heights (top of the cap screws 63 above the spigot as B 64 gives, cap plate, "
-            "body, strainer housing) are the side view's. The 4-bolt flange (C 67) is USM90's, since both bolt to the "
-            "PC90. Widths across are NOT on the TI and are assumed: cap plate 64, body 54, strainer housing 40, two "
-            "rows of cap screws 40 apart. The connection point is the centre of the four connector bolts, so it snaps "
-            "onto the PC90 front view like USM90. Side view: " + N_90 + "Overall length D (connector face to the end of the body) and flange height C are from the TI table; "
-            "body length A comes out at about 94.5. The TI drawing is not to scale: B (top of the cap screws to the "
-            "spigot centre) and C cannot both be met at one vertical scale, so the part above the flange is stretched "
-            "to make B 64. Withdrawal distances E (80), F (85) and G (30) are not drawn.",
+    "note": "Front view from Spirax's 2D CAD of the UTDS90 (front DWG, visible edges only), 1:1: the trap seen from its "
+            "connector side, four connector bolts on a 44.5 square round the spigot, cap plate and cap screws above. "
+            "The one connection point is the centre of the four bolts (= spigot centre), the same point as the PC90 "
+            "front view's trap point, so it snaps on. CAD: flange 66.5 (C 67), cap plate 94 across (A 94), spigot face "
+            "to body end 118.8 (D 119); top of the cap screws is 67 above the spigot centre where the TI table gives B "
+            "64 (the CAD is taken as right). Replaces the built (guessed) front view and the side view (2026-11-17); "
+            "_utds90 / _utds90_front still build those from TI-P804-01.",
 }
+
+
+# USM90 and UTDS90 front views from Spirax's 2D CAD (Mason, 2026-11-17: zips "USM90" and "UTDS90", usm90 / utds90 front,
+# top, left DWG). Both downloads share one CAD frame with the spigot at CAD (0, 0); tools/cad/USM90-front.json and
+# UTDS90-front.json are the front DWGs' MAIN-1 layer, origin CAD (0, 0). Measured:
+#   USM90  front: bolt hexes (r 11 lobes) centred (+-22.27, +-22.27), 44.54 square (PC90 holes 44.6); spigot circles about
+#                 (0, 0) -> trap point = bolt centre = origin; body circle r 32 about (0, 14), top y 46.39; flange +-33.27
+#          left:  flange x -20..0, spigot face x 3.8; dome arc (-58.18, 14) r 52.3 -> end x -110.48; spigot face to dome
+#                 end 114.3 (A 115); body y -18..46 (C 64), body axis 14 above the spigot
+#   UTDS90 front: same bolts, spigot and flange; cap plate x +-47, y 31.45..50.45; cap screw tops y 67.0
+#          left:  flange x -20..0, spigot face x 3.8; cap plate x -115..-21 (A 94); spigot face to body end 118.8 (D 119)
+#          top:   cap circle r 47 (94), six cap screws r 5 on a 37 radius
+CAD90 = {"USM90": Path(__file__).with_name("cad") / "USM90-front.json",
+         "UTDS90": Path(__file__).with_name("cad") / "UTDS90-front.json"}
+
+
+def _cad90(self):
+    lw = 0.35
+    pl = json.load(open(CAD90[self.model]))["polylines"]
+    _finish(self, [T.polyline(p) for p in pl if len(p) > 1], lw, {"trap": (0.0, 0.0)}, 1.0, close=6)
+    if self.model == "USM90":
+        self.d = {"A (spigot face to body end)": 114.3, "B (body top to flange bottom)": 79.7, "C (body)": 64,
+                  "D (flange)": 66.5, "Bolt square": 44.54}
+    else:
+        self.d = {"A (cap plate)": 94, "Cap screw top above centreline": 67.0, "C (flange)": 66.5,
+                  "D (spigot face to body end)": 118.8, "Bolt square": 44.54}
 
 
 def _usm90_front(self):
@@ -616,4 +635,4 @@ def _utds46mcad(self):
         self.d["BDV2 outlet below centreline"] = 44.45
 
 
-TRACERS = {"UFT32": _uft32cad, "USM90": _usm90, "UTDS90": _utds90, "UTD52L": _utd52l, "UFT14HC": _uft14hccad, "UBP32": _ubp32, "UTDS46M": _utds46mcad, "UTDS46M-BDV2": _utds46mcad, "UIB45": _uib, "UIB30": _uib, "UIB30H": _uib}
+TRACERS = {"UFT32": _uft32cad, "USM90": _cad90, "UTDS90": _cad90, "UTD52L": _utd52l, "UFT14HC": _uft14hccad, "UBP32": _ubp32, "UTDS46M": _utds46mcad, "UTDS46M-BDV2": _utds46mcad, "UIB45": _uib, "UIB30": _uib, "UIB30H": _uib}

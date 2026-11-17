@@ -38,7 +38,7 @@ previews. apptest.py also needs `playwright` and Chrome.
 - `pumps.py`      Pivotrol PTF and PTF Top; nozzles and check valves scaled as a unit to dimension A
 - `pumps2.py`     PTF4, PPEC (raster), APT10, APT14 / APT14HC / APT14SHC; helpers `_rigid_map` (small parts such as nuts
                   keep their shape where the body is stretched) and `_finish` (silhouette, box, ports from mm chains)
-- `universal.py`  universal (two bolt) trap units: UFT32, UFT14HC, UBP32, UTDS46M (trap unit only, one port at the
+- `universal.py`  universal (two bolt) trap units and the 4-bolt USM90 / UTDS90 (CAD front views, `_cad90`): UFT32, UFT14HC, UBP32, UTDS46M (trap unit only, one port at the
                   connector face), UIB45 / UIB30 / UIB30H (front view on the PC10HP, in and out at the connector ends),
                   UTD52L (vectorised picture). Also the shared helpers `_chains` (strokes with colour and dash flag),
                   `_pw` (piecewise map), `_finish` (silhouette, box, ports; `hidden` closes gaps without drawing them)
@@ -315,6 +315,24 @@ previews. apptest.py also needs `playwright` and Chrome.
   - Tests: `apptest.py "Steam traps"` placed 125, no errors. Pair test (playwright, view scale 2, trap put 3 mm off): both
     snap onto every PC4000 / UPC-ST / UPC-STR size and variant with 0.000 error, behind on PC4000, in front on UPC.
     PC4000 1/2" and 3/4" dropped inline on pipes drawn both ways (in upstream, out downstream), then each trap snapped on.
+
+- USM90 and UTDS90 front views from CAD (2026-11-17, zips "USM90" and "UTDS90": usm90 / utds90 front / top / left DWG):
+  - Replace the TI-built front view and the side view (both packs now have one variant, "Front view, on connector", so
+    drawings with the old front view still load; old "Side view" items will not). `_cad90` in universal.py,
+    tools/cad/USM90-front.json and UTDS90-front.json. `_usm90` / `_utds90` (TI tracers) are kept, unused.
+  - Both downloads share one CAD frame with the spigot at CAD (0, 0), which is also the centre of the four connector
+    bolts (hexes at +-22.27, +-22.27: a 44.54 square; the PC90 TI holes are 44.6). So `--origin 0 0`, port at (0, 0).
+  - Front view = connector side (bolts and spigot visible), same as UFT32 / UTDS46M. On the PC90 the trap point is not
+    "behind", so the trap sits in front of the connector; strictly you would see its far side. A "back" DWG would fix it.
+  - Measured against the TIs: USM90 flange 66.5 (D 67), body r 32 about (0, 14) (C 64), body top to flange bottom 79.7
+    (B 79), spigot face x 3.8 to dome end x -110.48 = 114.3 (A 115; dome arc centre -58.18, r 52.3). UTDS90 flange 66.5
+    (C 67), cap plate 94 across and 94 long (A 94), spigot face to body end 118.8 (D 119), cap screw tops 67 above the
+    spigot where the TI says B 64 (CAD taken as right).
+  - Pair test (playwright script as described under PC4000: view scale 2, trap put 3 mm / 2 mm off its point): both traps snap with
+    0.000 error onto every PC90 and PC90-BW size and connection (44 cases). Each PC90 dropped inline on pipes drawn both
+    ways (in upstream, out downstream; reversed pipe flips it), then the trap snapped onto the moved trap point.
+    `apptest.py "Steam traps"` placed 123 (two fewer variants), no errors.
+  - LibreDWG build took about 5 min this time (background, started first).
 
 - Pumps (TI-P207-10-US, TI-P208-02-US, TI-P612-02, TI-P612-28), 2026-11-16:
   - Pumps now have groups in catalog.json: Pressure powered pumps (PTF, PTF-TOP, PTF4, PPEC) and Automatic pump

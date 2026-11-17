@@ -237,6 +237,20 @@ previews. apptest.py also needs `playwright` and Chrome.
       USM90's 4-bolt flange, widths across assumed (cap 64, body 54, strainer housing 40, screw rows 40 apart).
     - PC4000 / PC4001 / PC40 then taken out of the library (Mason: the front view is too much of a guess). The
       tracer and note are still in connectors.py (DATA entry commented out).
+- Products from Spirax CAD (2026-11-17, PC4000): when the TI has no usable view, Mason can send the 2D CAD (a zip of
+  DWG files, one per view: front, back, left, right, top, bottom, iso). They are 1:1 mm, already flattened, visible
+  edges on layer MAIN-1, hidden on MAIN-2. Steps:
+  1. Build LibreDWG (not in the image, not on apt): curl the release from
+     github.com/LibreDWG/libredwg/releases/download/0.13.3/libredwg-0.13.3.tar.xz, `./configure --disable-bindings
+     --disable-docs --prefix=/tmp/ldwg/inst && make -j8 && make install` (about 3 min), then
+     `LD_LIBRARY_PATH=/tmp/ldwg/inst/lib /tmp/ldwg/inst/bin/dwg2dxf -y -o front.dxf <front>.dwg`. `pip install ezdxf`.
+  2. Measure ports on the other views (top view for end faces, left view for the bore centre) with ezdxf.
+  3. `tools/cad_extract.py front.dxf tools/cad/<ID>-front.json --origin <inlet x> <centreline y>` keeps MAIN-1,
+     joins and simplifies the lines (5668 pieces -> 273 polylines, 54 KB) and flips y to the tracers' y-down mm.
+  4. The tracer just loads the JSON (see `_pccad` in connectors.py); no PDF needed to rebuild.
+  - PC4000 is back (2-bolt connectors group) from the CAD of PC4000 L-R DN15 1/2" SW: face to face 124 (= TI C),
+    trap bolts 50.5 apart vertical on the centreline, trap point mid length marked "behind". 3/4" and NPT use the
+    same drawing (one dimension row on the TI); the hub engraving reads DN15 SW. PC4001 / PC40 not done (no CAD).
   - Product notes are no longer shown in the app (Mason: too long, pushed the panel down). Keep writing them in the
     tracers: they are the record of what was set from the TI and what was assumed, for the next session.
   - Still to do: front views for UFT32 (TI-P146-05), UFT14HC (TI-P712-01), UTDS46M (TI-P187-03), UTD52L, UIB30 /

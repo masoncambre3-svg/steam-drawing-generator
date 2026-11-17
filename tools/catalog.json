@@ -85,6 +85,7 @@
     "STS17-DBBUSHDSH",
     "PC90",
     "PC90-BW",
+    "PC4000",
     "UPC-STR",
     "UPC-ST"
    ],
@@ -101,6 +102,7 @@
     {
      "name": "2-bolt connectors",
      "products": [
+      "PC4000",
       "UPC-STR",
       "UPC-ST"
      ]

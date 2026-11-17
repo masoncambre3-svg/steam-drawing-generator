@@ -38,6 +38,7 @@ SDG.index({
   "connectors/STS17-DBBUSHDSH/STS17-DBBUSHDSH.js",
   "connectors/PC90/PC90.js",
   "connectors/PC90-BW/PC90-BW.js",
+  "connectors/PC4000/PC4000.js",
   "connectors/UPC-STR/UPC-STR.js",
   "connectors/UPC-ST/UPC-ST.js",
   "strainers/FIG16HP/FIG16HP.js",
@@ -132,6 +133,7 @@ SDG.index({
    [
     "2-bolt connectors",
     [
+     "PC4000",
      "UPC-STR",
      "UPC-ST"
     ]

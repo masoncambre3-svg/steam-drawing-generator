@@ -21,6 +21,9 @@ STS17.2 (TI-P128-22), front elevations on pages 7 to 10, pipe left to right, iso
 PC4000 / PC4001 / PC40 (TI-P128-33), the "horizontal application" side view on page 7 (pipe end on), PC4001 drawn;
     PC4000 drops the bypass valve, PC40 both valves. See PC_NOTE.
 """
+import json
+from pathlib import Path
+
 import numpy as np
 import ti_trace as T
 from universal import _chains, _bb, _mapped, _pw, _finish
@@ -123,6 +126,34 @@ PC_NOTE = ("Front view, handwheels facing you, flow left to right, the trap face
 # DATA["PC4000"] = {"name": "PC4000 / PC4001 / PC40", "type": "Pipeline connector, two piston isolation valves",
 #     "ti": "TI-P128-33", "tracer": "pc", "sizes": {'1/2"': {}, '3/4"': {}}, "variants": ["PC4000", "PC4001", "PC40"],
 #     "variantLabel": "Model", "note": PC_NOTE}
+
+# PC4000 back in, 2026-11-17, from Spirax's 2D CAD (Mason sent the DWG views of PC4000 L-R DN15 1/2" SW, 5796).
+# tools/cad/PC4000-front.json is the "front" DWG's visible layer (MAIN-1), 1:1 mm, made with tools/cad_extract.py,
+# origin at the inlet end face on the pipe centreline (CAD x -202.94, y 48.07). Measured on the CAD:
+#   inlet / outlet end faces x -202.94 / -78.94 (top view)  -> 124 face to face = C on the TI
+#   pipe centreline y 48.07 (left view: socket bore 21.8 dia, boss 44 dia)
+#   trap bolts 10.5 dia at x -140.94, y 73.32 and 22.82 -> trap point mid length on the centreline, bolts 50.5 apart
+PC_CAD = Path(__file__).with_name("cad") / "PC4000-front.json"
+
+
+def _pccad(self):
+    """Front view from the CAD: handwheels facing you, flow left to right, trap face on the back."""
+    lw = 0.35
+    pl = json.load(open(PC_CAD))["polylines"]
+    parts = [T.polyline(p) for p in pl if len(p) > 1]
+    self.d = {"C (face to face)": 124, "Trap bolt spacing": 50.5}
+    _finish(self, parts, lw, {"in": (0.0, 0.0), "out": (124.0, 0.0), "trap behind": (62.0, 0.0)}, 1.0, close=6)
+
+
+DATA["PC4000"] = {
+    "name": "PC4000", "type": "Pipeline connector, two piston isolation valves, front view", "ti": "TI-P128-33",
+    "tracer": "pccad", "sizes": {'1/2"': {}, '3/4"': {}}, "variants": ["SW", "NPT"], "variantLabel": "Connection",
+    "note": "Front view from Spirax's 2D CAD of the PC4000 L-R DN15 1/2\" SW (visible edges only), 1:1. Handwheels face "
+            "you, flow left to right, the trap face is on the back: the third connection point is mid length on the "
+            "pipe centreline and a trap snapped there is drawn behind the connector. Face to face 124 (C on the TI). "
+            "The TI gives one set of dimensions for every size, so 3/4\" and NPT use the same drawing; the hub "
+            "engraving reads DN15 SW as on the CAD.",
+}
 
 
 # Front view, handwheels facing you, trap on the back (Mason, 2026-11-16). The only drawing of this side is the TI's
@@ -461,4 +492,4 @@ class Connector:
         TRACERS[d.get("tracer", "sts")](self)
 
 
-TRACERS = {"sts": _sts, "pc": _pc, "pc90": _pc90, "pc90side": _pc90side, "upc": _upc, "upcs": _upcs}
+TRACERS = {"sts": _sts, "pc": _pc, "pccad": _pccad, "pc90": _pc90, "pc90side": _pc90side, "upc": _upc, "upcs": _upcs}

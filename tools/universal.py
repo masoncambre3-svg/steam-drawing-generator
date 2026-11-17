@@ -104,12 +104,23 @@ DATA["UBP32"] = {
             "(A, B) is not drawn.",
 }
 DATA["UTDS46M"] = {
-    "name": "UTDS46M", "type": "Thermodynamic with strainer, for pipeline connectors", "ti": "TI-P187-03",
-    "sizes": {"UTDS46M": {"Length": 113, "Flange": 67, "Cap dia": 63, "Cap top to centreline": 56}},
-    "variants": ["-"], "sizeLabel": "Model",
-    "note": N_UNIT + "Side view. Length is scaled to 113 and height to the 67 flange; the TI drawing is about 4% "
-            "taller than it is long, so these two are set separately. Withdrawal distances (30 above the cap, "
-            "50 past the strainer cap) are not drawn.",
+    "name": "UTDS46M", "type": "Thermodynamic with strainer, for pipeline connectors, front view", "ti": "TI-P187-03",
+    "sizes": {"UTDS46M": {}}, "variants": ["-"], "sizeLabel": "Model",
+    "source": "Spirax 2D CAD (UTDS46M connector 1200 front DWG), 1:1",
+    "note": "Front view from Spirax's 2D CAD of the UTDS46M (front DWG, visible edges only), 1:1: the trap seen from "
+            "the connector side, flange D 67 round about the spigot, the two connector bolts above and below it, 50.8 "
+            "apart, and the cap (63 round, top 55.8 above the spigot centreline) standing up behind. The one "
+            "connection point is the bolt centre (= spigot centre), so it snaps onto a connector's trap point. The "
+            "TI side view (_utds46m, connection at the spigot face) is no longer in the pack.",
+}
+DATA["UTDS46M-BDV2"] = {
+    "name": "UTDS46M BDV2", "type": "Thermodynamic with strainer and blowdown valve, for pipeline connectors, front view",
+    "ti": "TI-P187-03", "sizes": {"UTDS46M BDV2": {}}, "variants": ["-"], "sizeLabel": "Model",
+    "source": "Spirax 2D CAD (UTDS46M with BDV2, connector 1251 front DWG), 1:1",
+    "note": "Front view from Spirax's 2D CAD of the UTDS46M with BDV2 blowdown valve (front DWG, visible edges only), "
+            "1:1. Same trap, flange and bolts as the UTDS46M; the BDV2 on the strainer cap shows below the flange, its "
+            "outlet end 44.45 below the spigot centreline. One connection point at the bolt centre (= spigot centre), "
+            "so it snaps onto a connector's trap point. The blowdown outlet is not a connection point.",
 }
 _UIBN = ("Front view on a PC10HP connector, as the TI draws it: pipe left to right, connections at the connector "
          "ends, A apart. The TI views are not to scale, so the connector (A, and D from the top of the connector "
@@ -582,4 +593,27 @@ def _uft14hccad(self):
     self.d = {"A (dome end to spigot face)": 205, "B (body)": 110, "D (flange)": 67, "E (bolt spacing)": 50.8}
 
 
-TRACERS = {"UFT32": _uft32cad, "USM90": _usm90, "UTDS90": _utds90, "UTD52L": _utd52l, "UFT14HC": _uft14hccad, "UBP32": _ubp32, "UTDS46M": _utds46m, "UIB45": _uib, "UIB30": _uib, "UIB30H": _uib}
+# UTDS46M and UTDS46M with BDV2 front views from Spirax's 2D CAD (Mason, 2026-11-17: zips "UTDS46M" and
+# "UTDS46M_WITH_BDV2", utds46m_connector_1200 / _1251 front / top / left DWG). Both downloads share one CAD frame;
+# tools/cad/UTDS46M-front.json and UTDS46M-BDV2-front.json are the front DWGs' MAIN-1 layer, origin CAD x 37.79, y 11.25.
+#   front view: flange circle r 33.5 (D 67) and spigot circles about (37.79, 11.25); bolt hexes centred (37.79, 36.65)
+#               and (37.79, -14.15), 50.8 apart vertical -> trap point = bolt centre = origin. BDV2 outlet end y -33.20
+#               (44.45 below the spigot centreline), hex x 29.71-45.87
+#   left view:  spigot axis y 11.25; flange x 83.35-96.35, y -22.25..44.75 (67); spigot face x 100.05; strainer cap end
+#               x -9.60 -> spigot face to strainer cap end 109.65 (the old TI tracer used 113 for this length); cap top
+#               y 67.05 (55.8 above the spigot centreline, TI 56); BDV2 end x -61.05 (51.45 past the strainer cap)
+#   top view:   cap circle r 31.5 (63, TI 63) about (37.79, -43.45)
+UTDS46M_CAD = {"UTDS46M": Path(__file__).with_name("cad") / "UTDS46M-front.json",
+               "UTDS46M-BDV2": Path(__file__).with_name("cad") / "UTDS46M-BDV2-front.json"}
+
+
+def _utds46mcad(self):
+    lw = 0.35
+    pl = json.load(open(UTDS46M_CAD[self.model]))["polylines"]
+    _finish(self, [T.polyline(p) for p in pl if len(p) > 1], lw, {"trap": (0.0, 0.0)}, 1.0, close=6)
+    self.d = {"D (flange)": 67, "Cap dia": 63, "Cap top to centreline": 55.8, "Bolt spacing": 50.8}
+    if self.model == "UTDS46M-BDV2":
+        self.d["BDV2 outlet below centreline"] = 44.45
+
+
+TRACERS = {"UFT32": _uft32cad, "USM90": _usm90, "UTDS90": _utds90, "UTD52L": _utd52l, "UFT14HC": _uft14hccad, "UBP32": _ubp32, "UTDS46M": _utds46mcad, "UTDS46M-BDV2": _utds46mcad, "UIB45": _uib, "UIB30": _uib, "UIB30H": _uib}

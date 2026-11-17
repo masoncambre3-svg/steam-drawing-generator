@@ -262,7 +262,7 @@ previews. apptest.py also needs `playwright` and Chrome.
     wrong on the PC4000 front view until its front view is traced.
   - Product notes are no longer shown in the app (Mason: too long, pushed the panel down). Keep writing them in the
     tracers: they are the record of what was set from the TI and what was assumed, for the next session.
-  - Still to do: front views for UTDS46M (TI-P187-03), UTD52L, UIB30 /
+  - Still to do: front views for UTD52L, UIB30 /
     UIB45 (TI-P113-01 / -03); a trap point on STS17.2 (TI-P128-22).
   - Test a new pair with /tmp-style playwright: add the connector, add the trap a few mm off the trap point, check
     portsOf(trap)[0] equals portsOf(connector)[2]; then drop the connector on pipes both ways (applyInline).
@@ -298,6 +298,23 @@ previews. apptest.py also needs `playwright` and Chrome.
   - Tests: `apptest.py "Steam traps"` placed 124, no errors. Pair test: every UFT14HC rating snaps onto PC4000 1/2" and
     3/4", UPC-ST and UPC-STR (all sizes); drawn behind on PC4000, in front on UPC. PC4000 dropped inline on pipes drawn
     both ways (in upstream, out downstream), then UFT14HC snapped on its trap point.
+
+- UTDS46M and UTDS46M BDV2 front views from CAD (2026-11-17, zips "UTDS46M" and "UTDS46M_WITH_BDV2":
+  utds46m_connector_1200 and _1251 front / top / left DWG). Mason's message said "UTS46M"; both zips are UTDS46M, so the
+  plain one replaced the UTDS46M pack and the BDV2 one is a new product, UTDS46M-BDV2 (button "UTDS46M BDV2"), next to it
+  in Universal trap units.
+  - Same set-up as UFT32: trap unit with its two connector bolts, front view = connector side. Both downloads share one
+    CAD frame: origin CAD x 37.79, y 11.25 (flange / spigot centre = bolt centre). `_utds46mcad` in universal.py,
+    tools/cad/UTDS46M-front.json and UTDS46M-BDV2-front.json. The old TI side-view tracer `_utds46m` is kept, unused.
+  - Measured: bolt hexes at y 36.65 / -14.15, 50.8 apart vertical; flange r 33.5 (67); top view cap r 31.5 (63 = TI);
+    left view cap top 55.8 above the spigot centreline (TI 56); spigot face x 100.05 to strainer cap end x -9.60 = 109.65
+    (the old TI tracer scaled this to 113; not visible in the front view, so it doesn't matter here). BDV2: outlet end
+    44.45 below the centreline in the front view, 51.45 past the strainer cap in the left view.
+  - The BDV2 outlet is NOT a port: a second port straight below the trap point would make canInline() offer drop-inline
+    for the trap. If a blowdown point is ever wanted, it needs a third port with a direction, or a change in canInline.
+  - Tests: `apptest.py "Steam traps"` placed 125, no errors. Pair test (playwright, view scale 2, trap put 3 mm off): both
+    snap onto every PC4000 / UPC-ST / UPC-STR size and variant with 0.000 error, behind on PC4000, in front on UPC.
+    PC4000 1/2" and 3/4" dropped inline on pipes drawn both ways (in upstream, out downstream), then each trap snapped on.
 
 - Pumps (TI-P207-10-US, TI-P208-02-US, TI-P612-02, TI-P612-28), 2026-11-16:
   - Pumps now have groups in catalog.json: Pressure powered pumps (PTF, PTF-TOP, PTF4, PPEC) and Automatic pump

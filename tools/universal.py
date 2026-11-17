@@ -1,6 +1,6 @@
 """Universal (swivel connector) steam traps, sealed trap units that bolt onto a pipeline connector.
 
-UFT32 (TI-P146-05)
+UFT32 (TI-P146-05): the pack is now the front view from Spirax CAD (_uft32cad, 2026-11-17). The side view below is Universal._side.
     Traced from the side elevation on page 4. The TI dimensions only the trap unit, not the connector:
       A 168.5  dome end to connector face
       B 94     body diameter
@@ -9,6 +9,9 @@ UFT32 (TI-P146-05)
     centreline at C from the bottom. The one connection is the connector face, on its centreline.
     Every pressure rating (UFT32-4.5 to -32) has the same outline.
 """
+import json
+from pathlib import Path
+
 import numpy as np, pymupdf
 import ti_trace as T
 from sources import UFT32_PDF, UFT14HC_PDF, UBP32_PDF, UTDS46M_PDF, UIB45_PDF, UIB30_PDF, UTD52L_PDF, USM90_PDF, UTDS90_PDF
@@ -16,12 +19,16 @@ from sources import UFT32_PDF, UFT14HC_PDF, UBP32_PDF, UTDS46M_PDF, UIB45_PDF, U
 UFT_RATINGS = ["4.5", "10", "14", "21", "32"]
 DATA = {
     "UFT32": {
-        "name": "UFT32", "type": "Ball float, sealed stainless, for pipeline connectors", "ti": "TI-P146-05",
+        "name": "UFT32", "type": "Ball float, sealed stainless, for pipeline connectors, front view", "ti": "TI-P146-05",
         "sizes": {f"UFT32-{r}": dict(A=168.5, B=94, C=47) for r in UFT_RATINGS},
         "variants": ["-"], "sizeLabel": "Model",
-        "note": "Trap unit only, as dimensioned on the TI. The pipeline connector (PC10HP, PC20, PC3_, PC4_) is not "
-                "drawn: its dimensions are on TI-P128. The connection point is the connector face. Every rating "
-                "has the same outline; pick the rating for the label only. Install with the TOP label up (as drawn).",
+        "note": "Front view from Spirax's 2D CAD of the UFT32-4.5 (front DWG, visible edges only), 1:1: the trap seen "
+                "face on, body B 94 round, the two connector bolts above and below the spigot. The one connection "
+                "point is the centre of the two bolts (= spigot centre), so it snaps onto a connector's trap point "
+                "(PC4000: drawn behind the connector). Bolts 50.8 apart on the CAD (PC4000 CAD 50.5). Every rating "
+                "has the same outline, so all use the 4.5 CAD; pick the rating for the label only. The side view "
+                "(TI-P146-05 p4, connection at the connector face) is no longer in the pack; Universal._side still "
+                "builds it.",
     },
 }
 _ch = {}
@@ -35,6 +42,11 @@ class Universal:
         if model in TRACERS:
             TRACERS[model](self)
             return
+        self._side()
+
+    def _side(self):
+        """UFT32 side view from TI-P146-05 p4 (the pack's view until 2026-11-17; kept for reference)."""
+        model = self.model
         A, B = self.d["A"], self.d["B"]
         if model not in _ch:
             th, _ = T.collect(UFT32_PDF, 4, (272, 80, 404, 160), outline_lw=0.9)
@@ -532,4 +544,21 @@ def _utds90(self):
     _finish(self, [_mapped(segs, f) for _, segs, _, _ in ch], lw, {"in": (0.0, 0.0)}, sx)
 
 
-TRACERS = {"USM90": _usm90, "UTDS90": _utds90, "UTD52L": _utd52l, "UFT14HC": _uft14hc, "UBP32": _ubp32, "UTDS46M": _utds46m, "UIB45": _uib, "UIB30": _uib, "UIB30H": _uib}
+# UFT32 front view from Spirax's 2D CAD (Mason, 2026-11-17: zip "UFT32", uft32-4_5_connector_5300 front / top / left
+# DWG). tools/cad/UFT32-front.json is the front DWG's MAIN-1 layer, 1:1 mm, origin at CAD x -89.32, y 121.03. Measured:
+#   front view: body circle r 47 (B 94) about (-89.32, 121.03); bolt hex centres (-89.32, 146.43) and (-89.32, 95.63),
+#               50.8 apart vertical; spigot circles about the same centre -> trap point = bolt centre = origin
+#   left view:  spigot / body axis y 121.03, bolts y 95.63 / 146.43; dome end x -144.49 to connector face x 24.01
+#               = 168.5 (A on the TI)
+#   top view:   body x -136.32 to -42.32 = 94 (B)
+UFT32_CAD = Path(__file__).with_name("cad") / "UFT32-front.json"
+
+
+def _uft32cad(self):
+    lw = 0.35
+    pl = json.load(open(UFT32_CAD))["polylines"]
+    _finish(self, [T.polyline(p) for p in pl if len(p) > 1], lw, {"trap": (0.0, 0.0)}, 1.0, close=6)
+    self.d = {"A (dome end to connector face)": 168.5, "B (body)": 94, "Bolt spacing": 50.8}
+
+
+TRACERS = {"UFT32": _uft32cad, "USM90": _usm90, "UTDS90": _utds90, "UTD52L": _utd52l, "UFT14HC": _uft14hc, "UBP32": _ubp32, "UTDS46M": _utds46m, "UIB45": _uib, "UIB30": _uib, "UIB30H": _uib}

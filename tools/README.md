@@ -262,10 +262,27 @@ previews. apptest.py also needs `playwright` and Chrome.
     wrong on the PC4000 front view until its front view is traced.
   - Product notes are no longer shown in the app (Mason: too long, pushed the panel down). Keep writing them in the
     tracers: they are the record of what was set from the TI and what was assumed, for the next session.
-  - Still to do: front views for UFT32 (TI-P146-05), UFT14HC (TI-P712-01), UTDS46M (TI-P187-03), UTD52L, UIB30 /
+  - Still to do: front views for UFT14HC (TI-P712-01), UTDS46M (TI-P187-03), UTD52L, UIB30 /
     UIB45 (TI-P113-01 / -03); a trap point on STS17.2 (TI-P128-22).
   - Test a new pair with /tmp-style playwright: add the connector, add the trap a few mm off the trap point, check
     portsOf(trap)[0] equals portsOf(connector)[2]; then drop the connector on pipes both ways (applyInline).
+
+- UFT32 front view from CAD (2026-11-17, zip "UFT32": uft32-4_5_connector_5300 front / top / left DWG):
+  - The DWG is the trap unit only, with its two connector bolts and nuts (no connector). The "front" view looks at the
+    connector side (bolt hexes and spigot visible), body B 94 round. Pack = that view, one point at the bolt centre
+    (`_uft32cad` in universal.py, tools/cad/UFT32-front.json, origin CAD x -89.32, y 121.03). Front DWG has arcs, not
+    only lines; cad_extract handles them.
+  - Measured: bolts 50.8 apart vertical (PC4000 CAD says 50.5; snapping uses the centre, so it doesn't matter); left
+    view dome end to connector face 168.5 = TI A; top view body 94 = TI B. All five ratings use the 4.5 CAD.
+  - The side view is gone from the pack (variant still "-", so old drawings load, now showing the front view).
+    `Universal._side()` still builds it from TI-P146-05 if it is ever wanted back.
+  - On UPC-ST / UPC-STR the trap point is not "behind", so UFT32 sits in front of the connector; strictly you would
+    then see the dome end, not the bolt side. Outline is the same circle. A "back" DWG would give the dome end.
+  - LibreDWG build took about 6 min. `pip install pymupdf ezdxf --break-system-packages` was needed in a fresh image.
+  - Pair test (scripts like the one described above, view scale 2 so 3 mm is inside the 11 px snap): UFT32 every
+    rating snaps onto PC4000 1/2" / 3/4", UPC-ST and UPC-STR; on PC4000 it is in `behindIds` and drawn first. PC4000
+    with the trap on, dropped inline on pipes drawn both ways: in upstream, out downstream, trap still on its point.
+    `apptest.py "Steam traps"` placed 124, no errors.
 
 - Pumps (TI-P207-10-US, TI-P208-02-US, TI-P612-02, TI-P612-28), 2026-11-16:
   - Pumps now have groups in catalog.json: Pressure powered pumps (PTF, PTF-TOP, PTF4, PPEC) and Automatic pump

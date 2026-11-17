@@ -333,9 +333,9 @@ previews. apptest.py also needs `playwright` and Chrome.
     ways (in upstream, out downstream; reversed pipe flips it), then the trap snapped onto the moved trap point.
     `apptest.py "Steam traps"` placed 123 (two fewer variants), no errors.
   - LibreDWG build took about 5 min this time (background, started first).
-  - Later the same day (Mason): the traps get the PC90 sizes, 1/2", 3/4", 1" (`PC90_SIZES`, all the same drawing), and
-    variant "-" (no "on connector" wording). This overrides the earlier "no pipe sizes on universal trap units" rule for
-    these two only. Mason read the CAD front view as "connector attached": the 4-lobed plate and hex bolts are the trap's
+  - Later the same day: sizes 1/2", 3/4", 1" were added and then taken out again (Mason). Final: one size, the model
+    name (sizeLabel "Model"), variant "-", like UTDS46M. The trap unit is the same for every PC90 size and its TI has
+    one set of dimensions, so no pipe sizes on these. Mason read the CAD front view as "connector attached": the 4-lobed plate and hex bolts are the trap's
     own flange and cap screws (no PC90 in the CAD), but from the connector side it looks like the PC90 body. A "back" DWG
     (body side, which is also what you'd really see on the PC90 front view) would fix that; asked for it.
 

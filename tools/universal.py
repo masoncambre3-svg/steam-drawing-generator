@@ -382,25 +382,23 @@ def _utd52l(self):
 N_90 = ("Trap unit only, side view as the TI draws it. The PC90 4-bolt connector is not drawn here (the PC90 pack is a front "
         "view; a side view to bolt this trap onto is not in the library for now). The connection point is the connector face at the height of the PC90 pipe "
         "centreline, read from the TI's view of the trap on its connector. ")
-# Sizes are the PC90 sizes it bolts to (Mason, 2026-11-17); one trap unit fits all three, so every size is the same drawing.
-PC90_SIZES = ['1/2"', '3/4"', '1"']
 DATA["USM90"] = {
     "name": "USM90", "type": "Bimetallic, sealed stainless, for PC90 4-bolt connector", "ti": "TI-P805-01",
-    "sizes": {sz: dict(A=115, B=79, C=64, D=67) for sz in PC90_SIZES}, "variants": ["-"],
+    "sizes": {"USM90": dict(A=115, B=79, C=64, D=67)}, "variants": ["-"], "sizeLabel": "Model",
     "note": "Front view from Spirax's 2D CAD of the USM90 (front DWG, visible edges only), 1:1: the trap seen from its "
             "connector side, four connector bolts on a 44.5 square round the spigot, body C 64 round above it. The one "
             "connection point is the centre of the four bolts (= spigot centre), the same point as the PC90 front view's "
-            "trap point (54 from the inlet, 5.5 below the pipe centreline), so it snaps on. Sizes 1/2\", 3/4\" and 1\" are the PC90 sizes; the trap unit is the same for all three. CAD: flange 66.5 (D 67), "
+            "trap point (54 from the inlet, 5.5 below the pipe centreline), so it snaps on. CAD: flange 66.5 (D 67), "
             "top of the body to the bottom of the flange 79.7 (B 79), spigot face to body end 114.3 (A 115). Replaces the "
             "TI-built front view and the side view (2026-11-17); _usm90 / _usm90_front still build those from TI-P805-01.",
 }
 DATA["UTDS90"] = {
     "name": "UTDS90", "type": "Thermodynamic with strainer, stainless, for PC90 4-bolt connector", "ti": "TI-P804-01",
-    "sizes": {sz: dict(A=94, B=64, C=67, D=119) for sz in PC90_SIZES}, "variants": ["-"],
+    "sizes": {"UTDS90": dict(A=94, B=64, C=67, D=119)}, "variants": ["-"], "sizeLabel": "Model",
     "note": "Front view from Spirax's 2D CAD of the UTDS90 (front DWG, visible edges only), 1:1: the trap seen from its "
             "connector side, four connector bolts on a 44.5 square round the spigot, cap plate and cap screws above. "
             "The one connection point is the centre of the four bolts (= spigot centre), the same point as the PC90 "
-            "front view's trap point, so it snaps on. Sizes 1/2\", 3/4\" and 1\" are the PC90 sizes; the trap unit is the same for all three. CAD: flange 66.5 (C 67), cap plate 94 across (A 94), spigot face "
+            "front view's trap point, so it snaps on. CAD: flange 66.5 (C 67), cap plate 94 across (A 94), spigot face "
             "to body end 118.8 (D 119); top of the cap screws is 67 above the spigot centre where the TI table gives B "
             "64 (the CAD is taken as right). Replaces the built (guessed) front view and the side view (2026-11-17); "
             "_utds90 / _utds90_front still build those from TI-P804-01.",

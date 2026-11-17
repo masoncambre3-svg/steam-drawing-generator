@@ -251,6 +251,15 @@ previews. apptest.py also needs `playwright` and Chrome.
   - PC4000 is back (2-bolt connectors group) from the CAD of PC4000 L-R DN15 1/2" SW: face to face 124 (= TI C),
     trap bolts 50.5 apart vertical on the centreline, trap point mid length marked "behind". 3/4" and NPT use the
     same drawing (one dimension row on the TI); the hub engraving reads DN15 SW. PC4001 / PC40 not done (no CAD).
+  - PC4000 3/4" now has its own CAD (PC4000 L-R DN20 3/4" SW, 5896) in tools/cad/PC4000-DN20-front.json; `PC_CAD` in
+    connectors.py is a dict by size. Measured the same as DN15: end faces 124 apart (top view), centreline CAD y 48.07
+    (left view: socket bore 27.2, through bore 17.8, boss 44), trap bolts 10.5 at 50.5 apart. Only the hub engraving
+    differs. NPT still uses the SW drawing of its size. When a new size arrives as CAD, add it to `PC_CAD` the same way.
+  - LibreDWG build takes about 7 min here (configure + make -j8), not 3. Start it in the background first.
+  - Pair test used (tested 2026-11-17, all four PC4000 symbols): UBP32 and UFT32-10 put 3 mm off the trap point snap
+    onto it and are in `behindIds`; drop inline on a pipe drawn left to right and right to left leaves in on the
+    upstream pipe and out on the downstream one (flip on the reversed pipe). UFT32 is still its side view, so it looks
+    wrong on the PC4000 front view until its front view is traced.
   - Product notes are no longer shown in the app (Mason: too long, pushed the panel down). Keep writing them in the
     tracers: they are the record of what was set from the TI and what was assumed, for the next session.
   - Still to do: front views for UFT32 (TI-P146-05), UFT14HC (TI-P712-01), UTDS46M (TI-P187-03), UTD52L, UIB30 /

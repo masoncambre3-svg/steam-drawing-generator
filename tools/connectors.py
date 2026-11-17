@@ -133,13 +133,18 @@ PC_NOTE = ("Front view, handwheels facing you, flow left to right, the trap face
 #   inlet / outlet end faces x -202.94 / -78.94 (top view)  -> 124 face to face = C on the TI
 #   pipe centreline y 48.07 (left view: socket bore 21.8 dia, boss 44 dia)
 #   trap bolts 10.5 dia at x -140.94, y 73.32 and 22.82 -> trap point mid length on the centreline, bolts 50.5 apart
-PC_CAD = Path(__file__).with_name("cad") / "PC4000-front.json"
+# 3/4" from its own CAD, 2026-11-17 (PC4000 L-R DN20 3/4" SW, 5896), tools/cad/PC4000-DN20-front.json, origin CAD
+# x -202.936, y 48.07. Measured: end faces x -202.936 / -78.936 (top view) -> 124 again; centreline y 48.07 (left view:
+# socket bore 27.2, through bore 17.8, boss 44); trap bolts 10.5 at x -140.94, y 73.32 / 22.82 (50.5 apart). Same body
+# and outline as the DN15; only the hub engraving differs (DN20 SW).
+PC_CAD = {'1/2"': Path(__file__).with_name("cad") / "PC4000-front.json",
+          '3/4"': Path(__file__).with_name("cad") / "PC4000-DN20-front.json"}
 
 
 def _pccad(self):
     """Front view from the CAD: handwheels facing you, flow left to right, trap face on the back."""
     lw = 0.35
-    pl = json.load(open(PC_CAD))["polylines"]
+    pl = json.load(open(PC_CAD[self.size]))["polylines"]
     parts = [T.polyline(p) for p in pl if len(p) > 1]
     self.d = {"C (face to face)": 124, "Trap bolt spacing": 50.5}
     _finish(self, parts, lw, {"in": (0.0, 0.0), "out": (124.0, 0.0), "trap behind": (62.0, 0.0)}, 1.0, close=6)
@@ -148,11 +153,11 @@ def _pccad(self):
 DATA["PC4000"] = {
     "name": "PC4000", "type": "Pipeline connector, two piston isolation valves, front view", "ti": "TI-P128-33",
     "tracer": "pccad", "sizes": {'1/2"': {}, '3/4"': {}}, "variants": ["SW", "NPT"], "variantLabel": "Connection",
-    "note": "Front view from Spirax's 2D CAD of the PC4000 L-R DN15 1/2\" SW (visible edges only), 1:1. Handwheels face "
+    "note": "Front view from Spirax's 2D CAD of the PC4000 L-R DN15 1/2\" SW and DN20 3/4\" SW (visible edges only), 1:1. Handwheels face "
             "you, flow left to right, the trap face is on the back: the third connection point is mid length on the "
             "pipe centreline and a trap snapped there is drawn behind the connector. Face to face 124 (C on the TI). "
-            "The TI gives one set of dimensions for every size, so 3/4\" and NPT use the same drawing; the hub "
-            "engraving reads DN15 SW as on the CAD.",
+            "3/4\" is from the CAD of the PC4000 L-R DN20 3/4\" SW: same 124 face to face, centreline and trap bolts, hub "
+            "engraving DN20 SW. NPT uses the SW drawing of its size (the hub engraving still reads SW).",
 }
 
 

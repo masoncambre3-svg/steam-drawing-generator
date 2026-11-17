@@ -262,7 +262,7 @@ previews. apptest.py also needs `playwright` and Chrome.
     wrong on the PC4000 front view until its front view is traced.
   - Product notes are no longer shown in the app (Mason: too long, pushed the panel down). Keep writing them in the
     tracers: they are the record of what was set from the TI and what was assumed, for the next session.
-  - Still to do: front views for UFT14HC (TI-P712-01), UTDS46M (TI-P187-03), UTD52L, UIB30 /
+  - Still to do: front views for UTDS46M (TI-P187-03), UTD52L, UIB30 /
     UIB45 (TI-P113-01 / -03); a trap point on STS17.2 (TI-P128-22).
   - Test a new pair with /tmp-style playwright: add the connector, add the trap a few mm off the trap point, check
     portsOf(trap)[0] equals portsOf(connector)[2]; then drop the connector on pipes both ways (applyInline).
@@ -283,6 +283,21 @@ previews. apptest.py also needs `playwright` and Chrome.
     rating snaps onto PC4000 1/2" / 3/4", UPC-ST and UPC-STR; on PC4000 it is in `behindIds` and drawn first. PC4000
     with the trap on, dropped inline on pipes drawn both ways: in upstream, out downstream, trap still on its point.
     `apptest.py "Steam traps"` placed 124, no errors.
+
+- UFT14HC front view from CAD (2026-11-17, zip "UFT14": uft14hc-4_5_connector_5011 front / top / left DWG):
+  - Same set-up as UFT32: trap unit with its two connector bolts, origin CAD x -89.32, y 121.03 (the bolt / spigot
+    centre is at the same CAD point in both downloads). `_uft14hccad` in universal.py, tools/cad/UFT14HC-front.json.
+    The TI side view tracer `_uft14hc` is kept but no longer used.
+  - Measured: bolts 50.8 apart vertical (= TI E); flange r 33.5 (D 67); left view dome end (r 80 arc, x -179.84) to
+    spigot end face (x 25.16) = 205 = A; dome end to body collar face 152.7 (C 153); top view body 110 = B, collar 111.
+    In the left view the vertical line at x -170.29 is the dome seam, not the end: the dome end is the arc's extreme.
+  - The body axis sits 24.85 above the spigot (connector) centreline, so the port is not at the box centre. In test
+    scripts place a product by its port (`q = portsOf(T)[0]; T.x += target - q`), not by `x, y`: those are the box
+    centre, and a 25 mm offset is outside the 11 px snap.
+  - All three ratings (4.5, 10, 14) use the 4.5 CAD.
+  - Tests: `apptest.py "Steam traps"` placed 124, no errors. Pair test: every UFT14HC rating snaps onto PC4000 1/2" and
+    3/4", UPC-ST and UPC-STR (all sizes); drawn behind on PC4000, in front on UPC. PC4000 dropped inline on pipes drawn
+    both ways (in upstream, out downstream), then UFT14HC snapped on its trap point.
 
 - Pumps (TI-P207-10-US, TI-P208-02-US, TI-P612-02, TI-P612-28), 2026-11-16:
   - Pumps now have groups in catalog.json: Pressure powered pumps (PTF, PTF-TOP, PTF4, PPEC) and Automatic pump

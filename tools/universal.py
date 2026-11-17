@@ -81,12 +81,16 @@ class Universal:
 N_UNIT = ("Trap unit only, as dimensioned on the TI. The pipeline connector (PC10, PC10HP, PC20, PC3_, PC4_) is not "
           "drawn. The connection point is the connector face, on the connector centreline. ")
 DATA["UFT14HC"] = {
-    "name": "UFT14HC", "type": "Ball float, sealed stainless, for pipeline connectors", "ti": "TI-P712-01",
+    "name": "UFT14HC", "type": "Ball float, sealed stainless, for pipeline connectors, front view", "ti": "TI-P712-01",
     "sizes": {f"UFT14HC-{r}": dict(A=205, B=110, C=153, D=67, E=50.8) for r in ("4.5", "10", "14")},
-    "variants": ["-"], "sizeLabel": "Model",
-    "note": N_UNIT + "Every rating has the same outline; pick the rating for the label only. Side view as the TI "
-            "draws it (A to the dome end, C body to dome end, D connector flange). B is set from the table; the "
-            "TI drawing makes the body about 1 mm taller.",
+    "variants": ["-"], "sizeLabel": "Model", "source": "Spirax 2D CAD (UFT14HC-4.5 front DWG), 1:1",
+    "note": "Front view from Spirax's 2D CAD of the UFT14HC-4.5 (front DWG, visible edges only), 1:1: the trap seen "
+            "from the connector side, flange D 67 round about the spigot, body collar 111 round and set 24.85 above "
+            "the spigot (the body axis is above the connector centreline), the two connector bolts above and below "
+            "the spigot, 50.8 apart (E). The one connection point is the bolt centre (= spigot centre), so it snaps "
+            "onto a connector's trap point. Every rating has the same outline, so all use the 4.5 CAD; pick the "
+            "rating for the label only. The TI side view (_uft14hc, connection at the spigot face) is no longer in "
+            "the pack.",
 }
 DATA["UBP32"] = {
     "name": "UBP32", "type": "Balanced pressure, sealed stainless, for pipeline connectors", "ti": "TI-P127-01",
@@ -561,4 +565,21 @@ def _uft32cad(self):
     self.d = {"A (dome end to connector face)": 168.5, "B (body)": 94, "Bolt spacing": 50.8}
 
 
-TRACERS = {"UFT32": _uft32cad, "USM90": _usm90, "UTDS90": _utds90, "UTD52L": _utd52l, "UFT14HC": _uft14hc, "UBP32": _ubp32, "UTDS46M": _utds46m, "UIB45": _uib, "UIB30": _uib, "UIB30H": _uib}
+# UFT14HC front view from Spirax's 2D CAD (Mason, 2026-11-17: zip "UFT14", uft14hc-4_5_connector_5011 front / top /
+# left DWG). tools/cad/UFT14HC-front.json is the front DWG's MAIN-1 layer, origin at CAD x -89.32, y 121.03 (same as UFT32).
+#   front view: flange circle r 33.5 (D 67) and spigot circles about (-89.32, 121.03); bolt hex centres (-89.32, 95.63)
+#               and (-89.32, 146.43), 50.8 apart vertical (E); body collar circle r 55.5 about (-89.32, 145.88)
+#   left view:  dome end (r 80 arc) x -179.84 to spigot end face x 25.16 = 205 (A); dome end to collar face x -27.14 =
+#               152.7 (C 153); flange x 4.01-17.01, y 87.53-154.53 = 67 (D); body axis y 145.88, spigot axis y 121.03
+#   top view:   body x -144.32 to -34.32 = 110 (B); collar 111
+UFT14HC_CAD = Path(__file__).with_name("cad") / "UFT14HC-front.json"
+
+
+def _uft14hccad(self):
+    lw = 0.35
+    pl = json.load(open(UFT14HC_CAD))["polylines"]
+    _finish(self, [T.polyline(p) for p in pl if len(p) > 1], lw, {"trap": (0.0, 0.0)}, 1.0, close=6)
+    self.d = {"A (dome end to spigot face)": 205, "B (body)": 110, "D (flange)": 67, "E (bolt spacing)": 50.8}
+
+
+TRACERS = {"UFT32": _uft32cad, "USM90": _usm90, "UTDS90": _utds90, "UTD52L": _utd52l, "UFT14HC": _uft14hccad, "UBP32": _ubp32, "UTDS46M": _utds46m, "UIB45": _uib, "UIB30": _uib, "UIB30H": _uib}

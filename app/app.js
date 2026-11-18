@@ -11,11 +11,12 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 const PIPE = { '1/4"': [13.7, 2.24, 3.02], '3/8"': [17.1, 2.31, 3.20], '1/2"': [21.3, 2.77, 3.73], '3/4"': [26.7, 2.87, 3.91],
   '1"': [33.4, 3.38, 4.55], '1-1/4"': [42.2, 3.56, 4.85], '1-1/2"': [48.3, 3.68, 5.08], '2"': [60.3, 3.91, 5.54],
   '2-1/2"': [73.0, 5.16, 7.01], '3"': [88.9, 5.49, 7.62], '4"': [114.3, 6.02, 8.56], '5"': [141.3, 6.55, 9.53],
-  '6"': [168.3, 7.11, 10.97], '8"': [219.1, 8.18, 12.70], '10"': [273.0, 9.27, 15.09], '12"': [323.8, 10.31, 17.48] };
+  '6"': [168.3, 7.11, 10.97], '8"': [219.1, 8.18, 12.70], '10"': [273.0, 9.27, 15.09], '12"': [323.8, 10.31, 17.48],
+  '14"': [355.6, 11.13, 19.05], '16"': [406.4, 12.70, 21.44], '18"': [457.0, 14.27, 23.83], '20"': [508.0, 15.09, 26.19], '24"': [610.0, 17.48, 30.96] };
 // ASME B16.9 butt-weld fittings, mm: long-radius 90 elbow centre to end, tee centre to end, reducer length (by large end)
-const ELBOW = { '1/2"': 38, '3/4"': 38, '1"': 38, '1-1/4"': 48, '1-1/2"': 57, '2"': 76, '2-1/2"': 95, '3"': 114, '4"': 152, '5"': 190, '6"': 229, '8"': 305, '10"': 381, '12"': 457 };
-const TEE = { '1/2"': 25, '3/4"': 29, '1"': 38, '1-1/4"': 48, '1-1/2"': 57, '2"': 64, '2-1/2"': 76, '3"': 86, '4"': 105, '5"': 124, '6"': 143, '8"': 178, '10"': 216, '12"': 254 };
-const REDH = { '3/4"': 38, '1"': 51, '1-1/4"': 51, '1-1/2"': 64, '2"': 76, '2-1/2"': 89, '3"': 89, '4"': 102, '5"': 127, '6"': 140, '8"': 152, '10"': 178, '12"': 203 };
+const ELBOW = { '1/2"': 38, '3/4"': 29, '1"': 38, '1-1/4"': 48, '1-1/2"': 57, '2"': 76, '2-1/2"': 95, '3"': 114, '4"': 152, '5"': 190, '6"': 229, '8"': 305, '10"': 381, '12"': 457, '14"': 533, '16"': 610, '18"': 686, '20"': 762, '24"': 914 };
+const TEE = { '1/2"': 25, '3/4"': 29, '1"': 38, '1-1/4"': 48, '1-1/2"': 57, '2"': 64, '2-1/2"': 76, '3"': 86, '4"': 105, '5"': 124, '6"': 143, '8"': 178, '10"': 216, '12"': 254, '14"': 279, '16"': 305, '18"': 343, '20"': 381, '24"': 432 };
+const REDH = { '3/4"': 38, '1"': 51, '1-1/4"': 51, '1-1/2"': 64, '2"': 76, '2-1/2"': 89, '3"': 89, '4"': 102, '5"': 127, '6"': 140, '8"': 152, '10"': 178, '12"': 203, '14"': 330, '16"': 356, '18"': 381, '20"': 508, '24"': 508 };
 const FSIZES = Object.keys(ELBOW);
 const smaller = (size, n) => FSIZES.slice(Math.max(0, FSIZES.indexOf(size) - n), FSIZES.indexOf(size));
 LIB.families.push("Fittings");
@@ -68,11 +69,16 @@ function lookup(key) {
   return (FITS[key] = fitGeom(product, size, variant));
 }
 const NOM = s => s.replace('"', "").split("-").reduce((a, p) => a + (p.includes("/") ? p.split("/")[0] / p.split("/")[1] : +p), 0) * 25.4;
-const PRESETS = [["Blue", "#3f86dc"], ["Navy", "#1f3f73"], ["Steel grey", "#8d99a8"], ["Black", "#2a2f36"], ["Red", "#d0473c"],
-                 ["Orange", "#e58a2b"], ["Yellow", "#e9c53c"], ["Green", "#3f9a5f"], ["White", "#f2f4f7"]];
+const PRESETS = [["Blue", "#3f86dc"], ["Light blue", "#8cc4f2"], ["Navy", "#1f3f73"], ["Teal", "#2a9d9a"], ["Green", "#3f9a5f"],
+                 ["Dark green", "#2f6b45"], ["Lime", "#9bc53d"], ["Yellow", "#e9c53c"], ["Orange", "#e58a2b"], ["Red", "#d0473c"],
+                 ["Maroon", "#7d2a35"], ["Pink", "#d96aa7"], ["Purple", "#7a52b3"], ["Brown", "#8a5a36"], ["Tan", "#d8b67a"],
+                 ["Steel grey", "#8d99a8"], ["Light grey", "#c9ced6"], ["Black", "#2a2f36"], ["White", "#f2f4f7"]];
+// Materials: picking one sets the colour and is listed in the bill of materials (Mason, 2026-11-18)
+const MATERIALS = [["cs", "Carbon steel", "#4b535e"], ["ss", "Stainless steel", "#c5ccd5"], ["br", "Bronze", "#b07a3c"]];
+const matName = k => (MATERIALS.find(m => m[0] === k) || [0, ""])[1];
 const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
-const BUILD = "13";
+const BUILD = "14";
 const LOGO = window.SDG_LOGO || null;                       // vector Spirax Sarco logo, app/logo.js
 const STYLE0 = { shade: true, blackLines: false, units: "ftin", prec: 1 };
 const UNITS = [["ftin", "ft-in"], ["in", "in"], ["mm", "mm"]];
@@ -86,7 +92,7 @@ const SHEET0 = () => ({ frame: false, bom: false, nums: false, logo: true, pipe:
 let doc = { v: 1, style: Object.assign({}, STYLE0), sheet: SHEET0(), items: [] };
 const ui = { tool: "select", sel: null, set: [], draft: null, cursor: null, view: { cx: 0, cy: 0, s: 1.6 },
   pick: { family: "Steam traps", product: "TD52", size: '3/4"', variant: "NPT", color: "#3f86dc", arrow: true, logo: false, logoPos: "center", logoSize: "M" },
-  pipe: { nps: '3/4"', sch: 80, color: "#8d99a8", label: true, cut: false, len: false },
+  pipe: { nps: '3/4"', sch: 80, color: "#8d99a8", mat: "", label: true, cut: false, len: false },
   text: { text: "", size: 14, color: "#13233b" }, arrow: { color: "#13233b" }, dim: { mode: "aligned", color: "#13233b", size: 0 } };
 
 // ---------------------------------------------------------------- lengths and dimensions
@@ -672,7 +678,9 @@ function panel() {
   }
   const ung = many.length > 0 && many.some(i => i.grp) && (grouped || many.length < 2);
   $("bGroup").textContent = ung ? "Ungroup" : "Group"; $("bGroup").disabled = !ung && many.length < 2;
-  ["Select", "Pipe", "Text", "Arrow", "Dim"].forEach(t => $("t" + t).setAttribute("aria-pressed", ui.tool === t.toLowerCase()));
+  const fitOn = ui.tool === "select" && ui.pick.family === "Fittings";
+  ["Select", "Pipe", "Text", "Arrow", "Dim"].forEach(t => $("t" + t).setAttribute("aria-pressed", ui.tool === t.toLowerCase() && !(t === "Select" && fitOn)));
+  $("tFit").setAttribute("aria-pressed", fitOn);
   $("bRot").disabled = !(kind === "sym" || kind === "pipe" || many.length > 1); $("bFlip").disabled = kind !== "sym";
   $("bRot").textContent = kind === "pipe" ? "Rotate 45°" : "Rotate"; $("bDup").disabled = $("bDel").disabled = $("bCopy").disabled = !many.length;
   $("bPaste").disabled = !readClip();
@@ -682,11 +690,8 @@ function panel() {
   // product picker: edits the selected product, or sets up the next one to add
   const tgt = kind === "sym" ? sel : ui.pick, editing = kind === "sym";
   const set = (k, v) => { tgt[k] = v; if (editing) commit(); else panel(); };
-  const famChips = () => chipRow($("families"), [...LIB.families, MYASM], ui.pick.family, v => {
-    const grey = f => f === "Fittings" || f === "Equipment";             // fittings and equipment start out pipe grey
-    if (grey(v) && !grey(ui.pick.family)) { ui.pick.prevColor = ui.pick.color; ui.pick.color = ui.pipe.color; }
-    if (!grey(v) && grey(ui.pick.family) && ui.pick.prevColor) ui.pick.color = ui.pick.prevColor;
-    ui.pick.family = v; panel(); });
+  const famChips = () => chipRow($("families"), [...LIB.families.filter(f => f !== "Fittings"), MYASM], ui.pick.family, v => {
+    pickFamily(v); panel(); });
   const asmMode = !editing && ui.pick.family === MYASM;     // the picker shows saved assemblies instead of products
   $("asmBody").hidden = !asmMode; $("prodBody").hidden = asmMode;
   if (asmMode) { $("prodTitle").textContent = "Add a product"; $("families").hidden = false; $("groups").hidden = true; famChips(); asmPanel(); }
@@ -705,7 +710,7 @@ function panel() {
     if (!variantsOf(p, ui.pick.size).includes(ui.pick.variant)) ui.pick.variant = variantsOf(p, ui.pick.size)[0];
   } else if (p && !variantsOf(p, sel.size).includes(sel.variant)) sel.variant = variantsOf(p, sel.size)[0];
   if (p) {
-    $("prodTitle").textContent = editing ? "Selected product" : "Add a product";
+    $("prodTitle").textContent = editing ? (p.fit ? "Selected fitting" : "Selected product") : ui.pick.family === "Fittings" ? "Add a fitting" : "Add a product";
     $("families").hidden = $("products").hidden = $("addBtn").hidden = editing;
     $("groups").hidden = editing || !gs.length;
     if (!editing) {
@@ -766,6 +771,8 @@ function panel() {
     $("variantRow").hidden = $("variants").hidden = vs.length < 2 && vs[0] === "-";
     $("variantLabel").textContent = p.variantLabel || "Connection";
     chipRow($("variants"), vs, tgt.variant, v => set("variant", v), v => VARIANT_LABEL[v] || (v[0].toUpperCase() + v.slice(1)));
+    chipRow($("symMat"), ["", ...MATERIALS.map(m => m[0])], tgt.mat || "", v => { tgt.mat = v; if (v) tgt.color = MATERIALS.find(m => m[0] === v)[2]; if (editing) commit(); else panel(); },
+      v => v ? matName(v) : "None");
     swatches($("symColors"), tgt.color, v => set("color", v));
     const s = p.eq ? eqSym(p.id, editing ? sel.prm || {} : ui.pick.prms[p.id], tgt.variant) : lookup(`${tgt.product}|${tgt.size}|${tgt.variant}`);
     $("symArrow").checked = !!tgt.arrow; $("symArrowWrap").hidden = !(s && s.arrow);
@@ -783,6 +790,8 @@ function panel() {
   $("nps").onchange = e => pset("nps", e.target.value); $("sch").onchange = e => pset("sch", +e.target.value);
   $("pipeLabel").onchange = e => pset("label", e.target.checked); $("pipeCut").onchange = e => pset("cut", e.target.checked);
   $("pipeLen").checked = !!pt.len; $("pipeLen").onchange = e => pset("len", e.target.checked);
+  chipRow($("pipeMat"), ["", ...MATERIALS.map(m => m[0])], pt.mat || "", v => { pt.mat = v; if (v) pt.color = MATERIALS.find(m => m[0] === v)[2]; if (pe) commit(); else refresh(); },
+    v => v ? matName(v) : "None");
   swatches($("pipeColors"), pt.color, v => pset("color", v));
   // lengths: type the next run while drawing, or edit any run of the selected pipe
   $("runNext").hidden = pe || ui.tool !== "pipe";
@@ -839,7 +848,7 @@ function panel() {
 // ---------------------------------------------------------------- actions
 function setTool(t) { ui.tool = t; ui.draft = null; ui.cursor = null; if (t !== "select") selectIds([]); refresh(); }
 function addProduct() {
-  const k = ui.pick, it = { id: nextId++, type: "sym", product: k.product, size: k.size, variant: k.variant, color: k.color, arrow: k.arrow, rot: 0, flip: false, x: ui.view.cx, y: ui.view.cy,
+  const k = ui.pick, it = { id: nextId++, type: "sym", product: k.product, size: k.size, variant: k.variant, color: k.color, mat: k.mat || "", arrow: k.arrow, rot: 0, flip: false, x: ui.view.cx, y: ui.view.cy,
     logo: !!k.logo, logoPos: k.logoPos, logoSize: k.logoSize };
   if (EQ[k.product]) it.prm = JSON.parse(JSON.stringify((k.prms && k.prms[k.product]) || eqDefaults(k.product)));
   doc.items.push(it); snapSym(it); selectIds([it.id]); ui.tool = "select"; commit();
@@ -1360,8 +1369,8 @@ function bomRows() {
   const sh = doc.sheet, fam = LIB.families, prods = new Map(), eqs = new Map(), pipes = new Map(), NPS = Object.keys(PIPE);
   for (const it of doc.items) {
     if (it.type === "pipe" && sh.pipe) {
-      const k = `${it.nps}|${it.sch}`, L = it.pts.slice(1).reduce((n, p, j) => n + Math.hypot(p[0] - it.pts[j][0], p[1] - it.pts[j][1]), 0);
-      const r = pipes.get(k) || { kind: "pipe", name: "Pipe", desc: `Schedule ${it.sch}`, size: it.nps, conn: "", ti: "", len: 0, ord: [NPS.indexOf(it.nps), it.sch] };
+      const k = `${it.nps}|${it.sch}|${it.mat || ""}`, L = it.pts.slice(1).reduce((n, p, j) => n + Math.hypot(p[0] - it.pts[j][0], p[1] - it.pts[j][1]), 0);
+      const r = pipes.get(k) || { kind: "pipe", name: "Pipe", desc: `Schedule ${it.sch}`, size: it.nps, conn: "", mat: matName(it.mat), ti: "", len: 0, ord: [NPS.indexOf(it.nps), it.sch, matName(it.mat)] };
       r.len += L; pipes.set(k, r); continue;
     }
     if (it.type !== "sym" || !valid(it)) continue;
@@ -1369,12 +1378,12 @@ function bomRows() {
     if (q.eq) {
       if (!sh.equip) continue;
       const dims = Object.entries(symOf(it).dims || {}).slice(0, 2).map(([k, v]) => `${k} ${fmtLen(v, null, 1)}`).join(", ");
-      const k = `${it.product}|${it.variant}|${dims}`, r = eqs.get(k) || { kind: "eq", name: q.name, desc: dims, size: "", conn: it.variant === "-" ? "" : it.variant, ti: "", qty: 0, ids: [], ord: [q.name] };
+      const k = `${it.product}|${it.variant}|${dims}`, r = eqs.get(k) || { kind: "eq", name: q.name, desc: dims, size: "", conn: it.variant === "-" ? "" : it.variant, mat: "", ti: "", qty: 0, ids: [], ord: [q.name] };
       r.qty++; r.ids.push(it.id); eqs.set(k, r); continue;
     }
-    const k = `${it.product}|${it.size}|${it.variant}`;
-    const r = prods.get(k) || { kind: "prod", name: q.name, desc: q.type, size: it.size === "-" ? "" : it.size, conn: it.variant === "-" ? "" : it.variant, ti: q.ti || "",
-      qty: 0, ids: [], ord: [fam.indexOf(q.family), q.name, q.sizes.indexOf(it.size), String(it.variant)] };
+    const k = `${it.product}|${it.size}|${it.variant}|${it.mat || ""}`;
+    const r = prods.get(k) || { kind: "prod", name: q.name, desc: q.type, size: it.size === "-" ? "" : it.size, conn: it.variant === "-" ? "" : it.variant, mat: matName(it.mat), ti: q.ti || "",
+      qty: 0, ids: [], ord: [fam.indexOf(q.family), q.name, q.sizes.indexOf(it.size), String(it.variant), matName(it.mat)] };
     r.qty++; r.ids.push(it.id); prods.set(k, r);
   }
   const cmp = (a, b) => { for (let i = 0; i < a.ord.length; i++) { if (a.ord[i] < b.ord[i]) return -1; if (a.ord[i] > b.ord[i]) return 1; } return 0; };
@@ -1383,7 +1392,7 @@ function bomRows() {
   rows.forEach((r, i) => { r.n = i + 1; });
   return rows;
 }
-const BOM_COLS = [["n", "Item"], ["qty", "Qty"], ["name", "Product"], ["desc", "Description"], ["size", "Size"], ["conn", "Connection"], ["ti", "TI sheet"]];
+const BOM_COLS = [["n", "Item"], ["qty", "Qty"], ["name", "Product"], ["desc", "Description"], ["size", "Size"], ["conn", "Connection"], ["mat", "Material"], ["ti", "TI sheet"]];
 function bomDialog() {
   const rows = bomRows(), t = $("bomTable");
   $("bomPipe").checked = doc.sheet.pipe; $("bomEquip").checked = doc.sheet.equip;
@@ -1482,7 +1491,7 @@ function renderSheet() {
     y += 1.5 * u; o += L(x, y, x + w, y);
     if (!rows.length) o += T(x + 0.5 * u, y + 1.05 * u, "No products on the drawing yet", 0.7 * u, { fill: mute });
     rows.forEach((r, j) => {
-      const yy = y + 1.55 * u * j, vals = [r.n, r.qty, r.name, r.desc, r.size, r.conn];
+      const yy = y + 1.55 * u * j, vals = [r.n, r.qty, r.name, r.mat ? `${r.desc}, ${r.mat}` : r.desc, r.size, r.conn];
       if (j) o += L(x, yy, x + w, yy);
       vals.forEach((v, i) => { o += T(xs[i] + 0.35 * u, yy + 1.05 * u, v, 0.72 * u, { w: BCOL[i] * u - 0.6 * u, bold: i === 0 }); });
     });
@@ -1547,7 +1556,16 @@ $("bKeys").addEventListener("click", keysDialog);
 $("keysClose").addEventListener("click", () => $("keysDlg").close());
 
 // ---------------------------------------------------------------- wiring
-[["tSelect", "select"], ["tPipe", "pipe"], ["tText", "text"], ["tArrow", "arrow"], ["tDim", "dim"]].forEach(([id, t]) => $(id).addEventListener("click", () => setTool(t)));
+[["tPipe", "pipe"], ["tText", "text"], ["tArrow", "arrow"], ["tDim", "dim"]].forEach(([id, t]) => $(id).addEventListener("click", () => setTool(t)));
+// Fittings sit in the toolbar beside Pipe (Mason, 2026-11-18): the button opens the fittings picker; Select goes back to the products
+function pickFamily(v) {
+  const grey = f => f === "Fittings" || f === "Equipment";             // fittings and equipment start out pipe grey
+  if (grey(v) && !grey(ui.pick.family)) { ui.pick.prevColor = ui.pick.color; ui.pick.prevMat = ui.pick.mat; ui.pick.color = ui.pipe.color; ui.pick.mat = ui.pipe.mat || ""; }
+  if (!grey(v) && grey(ui.pick.family) && ui.pick.prevColor) { ui.pick.color = ui.pick.prevColor; ui.pick.mat = ui.pick.prevMat || ""; }
+  ui.pick.family = v;
+}
+$("tFit").addEventListener("click", () => { if (ui.pick.family !== "Fittings") { ui.pick.prevFamily = ui.pick.family; pickFamily("Fittings"); } setTool("select"); });
+$("tSelect").addEventListener("click", () => { if (ui.pick.family === "Fittings") pickFamily(ui.pick.prevFamily && ui.pick.prevFamily !== "Fittings" ? ui.pick.prevFamily : LIB.families[0]); setTool("select"); });
 $("addBtn").addEventListener("click", addProduct);
 $("bGroup").addEventListener("click", () => { if ($("bGroup").textContent === "Ungroup") ungroup(); else group(); });
 $("runLen").addEventListener("keydown", e => {

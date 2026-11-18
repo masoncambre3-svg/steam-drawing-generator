@@ -63,54 +63,145 @@ DATA = {
 FLANGE_OD_300 = {'3/4"': 117.0, '1"': 124.0, '1-1/2"': 156.0, '2"': 165.0}
 
 
-def ft450_geom(d, flanged):
-    """FT450 front view, built directly in mm for each size.
+FLANGE_T_300 = {'3/4"': 15.9, '1"': 17.5, '1-1/2"': 20.6, '2"': 22.3}      # ASME B16.5 class 300 flange thickness
+PIPE_OD = {'3/4"': 26.7, '1"': 33.4, '1-1/2"': 48.3, '2"': 60.3}
 
-    The handbook only carries this drawing as a small picture, so it cannot be
-    traced like the others. It is rebuilt here from that picture and the table.
+# FT450 front view, read off the TI picture (TI-P026-02-US, Mason's screenshot 2026-11-18, original pixels). The picture
+# is the 3/4" (B = C): plate centre (140.5, 221.5) on the pipe centreline, A from x 75 to 205.5, hubs y 204.5..238.
+# Cover plate = hull of six bolt lugs (r 8): top / bottom (0, -+50.5), sides (-+47, -+25.5). Float chamber dome
+# behind the top: circle r 43 about (140.5, 196). Air vent plug x 132..148 on the dome top. Mechanism boss r 7.8 at
+# (137.5, 219). Cast passage lines and the lever casting are the polylines below.
+_FTP = dict(cx=140.5, cy=221.5, hw=55.0, hh=58.5, lug=8.0, bx=47.0, by=25.5, bt=50.5, dome=43.0)
+_FT_TOP = [(101, 205), (107, 205.5), (110.5, 209), (112, 214.5), (113.5, 216), (114.8, 211), (116, 205), (120, 200),
+           (127, 196.5), (137, 194.3), (148, 194.3), (156, 196.2), (162, 199.5), (178.5, 215)]
+_FT_BOT = [(101, 238), (106, 233.5), (111, 229.8), (117, 228), (122, 228.8), (126, 232.5), (129.5, 238.5), (131.5, 243.5),
+           (135.5, 247.3), (140.5, 248.6), (145.5, 247), (149, 243.5), (151, 239.5), (164, 234.5), (178.5, 229)]
+_FT_LEVER = [(129.5, 236), (128.3, 226), (129.3, 216), (133, 210.5), (139.5, 208.6), (146.5, 209.2), (153, 210.8),
+             (158.5, 213), (162, 217), (163.2, 222), (161.8, 227), (158, 230.6), (153, 232.8), (149.5, 235.5)]
+
+
+def _spline(P, n=6):
+    """Catmull-Rom through the points, n steps per span."""
+    P = [P[0]] + list(P) + [P[-1]]
+    out = []
+    for i in range(1, len(P) - 2):
+        p0, p1, p2, p3 = (np.array(q, float) for q in P[i-1:i+3])
+        for k in range(n):
+            t = k / n
+            out.append(0.5 * ((2*p1) + (-p0 + p2)*t + (2*p0 - 5*p1 + 4*p2 - p3)*t*t + (-p0 + 3*p1 - 3*p2 + p3)*t**3))
+    out.append(np.array(P[-2], float))
+    return [tuple(q) for q in out]
+
+
+def _hull(pts):
+    pts = sorted(set(pts))
+    if len(pts) < 3:
+        return pts
+    def cross(o, a, b):
+        return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0])
+    lo, up = [], []
+    for q in pts:
+        while len(lo) >= 2 and cross(lo[-2], lo[-1], q) <= 0:
+            lo.pop()
+        lo.append(q)
+    for q in reversed(pts):
+        while len(up) >= 2 and cross(up[-2], up[-1], q) <= 0:
+            up.pop()
+        up.append(q)
+    return lo[:-1] + up[:-1]
+
+
+def ft450_geom(d, flanged):
+    """FT450 front view in mm for each size, from the TI picture (see _FTP) and the TI table.
+
+    Cover plate: bottom at C, top 4 % of B + C below the dome top (the picture shows only the dome's shoulders), so on
+    the 3/4" (B = C) it is centred on the pipe like the picture and on the larger sizes it rides up with B. Width 0.87 x
+    its height (as drawn), kept between 0.6 A and 0.88 A. Dome (float chamber) top at B. Hubs 1.5 x pipe OD, ends at 0, A.
+    Flanged: ASME B16.5 class 300 flanges at A1 (the TI gives A1 only).
     """
     A, A1, B, C = d["A"], d["A1"], d["B"], d["C"]
+    size = d.get("size")
     e = (A1 - A) / 2
     cx = A / 2
+    Hp = 0.96 * (B + C)
+    yc = C - Hp / 2
+    W = min(max(0.87 * Hp, 0.6 * A), 0.88 * A)
+    sx, sy = (W / 2) / _FTP["hw"], (Hp / 2) / _FTP["hh"]
+    k = math.sqrt(sx * sy)
+    X = lambda x: cx + (x - _FTP["cx"]) * sx
+    Y = lambda y: (y - _FTP["cy"]) * sy
+    P = lambda q: (X(q[0]), Y(q[1]))
     H = B + C
-    r = 0.082 * H                                                # bolt lug radius
-    plug = 0.07 * H                                              # air vent plug standing above the cover
-    yt, yb = -(B - plug - r), C - r                              # top and bottom lug centres
-    R, cy = (yb - yt) / 2, (yb + yt) / 2
-    hw = min(0.866 * R, 0.5 * A - r - 0.02 * A)                  # regular hexagon unless the body is short
-    V = [(cx, yt), (cx + hw, cy - R/2), (cx + hw, cy + R/2), (cx, yb), (cx - hw, cy + R/2), (cx - hw, cy - R/2)]
-    hub = min(0.265 * A, 0.34 * H)
-    shapes = [T.polyline(V, closed=True)] + [T.circle(x, y, r) for x, y in V]
-    shapes.append(T.polyline([(0, -hub/2), (A, -hub/2), (A, hub/2), (0, hub/2)], closed=True))
-    pw = 0.75 * r
-    shapes.append(T.polyline([(cx-pw, -B), (cx+pw, -B), (cx+pw, yt), (cx-pw, yt)], closed=True))
-    fh = FLANGE_OD_300.get(d.get("size"), hub * 2.6)               # ASME class 300 flange OD
-    clip = (-e - 8, -max(B, fh/2) - 8, A + e + 8, max(C, fh/2) + 8)
+    hd = 1.5 * PIPE_OD.get(size, A * 0.17)
+    # cover plate: hull of the six bolt lugs
+    bolts = [(cx, yc - _FTP["bt"] * sy), (cx, yc + _FTP["bt"] * sy)]
+    for sgx in (-1, 1):
+        for sgy in (-1, 1):
+            bolts.append((cx + sgx * _FTP["bx"] * sx, yc + sgy * _FTP["by"] * sy))
+    lug = _FTP["lug"] * k
+    ring = [(bx + lug * math.cos(math.radians(t)), by + lug * math.sin(math.radians(t))) for bx, by in bolts for t in range(0, 360, 10)]
+    plate = _hull(ring)
+    # dome behind the top, plug on top of it
+    rd = _FTP["dome"] * sx
+    top = -B
+    dome = (cx, top + rd)
+    pw, ph = 8.0 * k, 6.5 * k
+    shapes = [T.polyline(plate, closed=True), T.circle(dome[0], dome[1], rd),
+              T.polyline([(0, -hd/2), (A, -hd/2), (A, hd/2), (0, hd/2)], closed=True),
+              T.polyline([(cx - pw, top - ph), (cx + pw, top - ph), (cx + pw, top + 2), (cx - pw, top + 2)], closed=True)]
+    fod, ft = FLANGE_OD_300.get(size, hd * 2.4), min(FLANGE_T_300.get(size, 18.0), 0.6 * e)
+    clip = (-e - 8, top - ph - 8, A + e + 8, max(C, fod / 2) + 8)
     wo, wd = 0.0105 * H, 0.0064 * H
-    thick = [(wo, sh) for sh in T.union_outline(shapes, clip, smooth=1.0, S=min(20, 3200 / (A1 + 16)))]
-    thin = []
-    for x, y in V:                                               # cover bolts
-        thin.append((wd * 1.15, T.circle(x, y, r * 0.60)))
-        thin.append((wd, T.polyline([(x + r*0.40*math.cos(math.radians(a)), y + r*0.40*math.sin(math.radians(a)))
-                                     for a in range(0, 360, 60)], closed=True)))
-    f = 0.78
-    thin.append((wd, T.polyline([(cx + (x-cx)*f, cy + (y-cy)*f) for x, y in V], closed=True)))   # raised cover face
-    rb = 0.26 * R
-    for rr, w in ((rb, wd*1.15), (rb*0.63, wd), (rb*0.3, wd)):   # mechanism boss
-        thin.append((w, T.circle(cx, 0, rr)))
-    for sx in (-1, 1):                                           # cast ribs either side of the boss
-        for dy in (-0.24, 0.24):
-            thin.append((wd, T.polyline([(cx + sx*rb*0.97, dy*rb), (cx + sx*hw*0.74, dy*rb)])))
-    thin.append((wd, T.polyline([(cx-pw, -B + plug*0.45), (cx+pw, -B + plug*0.45)])))   # plug hex
-    for x in (0.03*A, 0.97*A):                                   # connection ends
-        thin.append((wd, T.polyline([(x, -hub/2), (x, hub/2)])))
+    thick = [(wo, sh) for sh in T.union_outline(shapes, clip, smooth=0.8, S=min(20, 3200 / (A1 + 16)))]
+    # plate edge over the dome; the hubs sit in front of it, so it stops at their top and bottom edges
+    xin = X(_FT_TOP[0][0])
+    thin, ring_ = [], plate + [plate[0]]
+    run = []
+    for a_, b_ in zip(ring_, ring_[1:]):
+        m = ((a_[0] + b_[0]) / 2, (a_[1] + b_[1]) / 2)
+        if abs(m[1]) < hd / 2 and (m[0] < xin or m[0] > A - xin):
+            if len(run) > 1:
+                thin.append((wo * 0.9, T.polyline(run)))
+            run = []
+            continue
+        run = run or [a_]
+        run.append(b_)
+    if len(run) > 1:
+        thin.append((wo * 0.9, T.polyline(run)))
+    # hubs: their top and bottom edges run in over the plate to the cast passage; thread / hub land lines
+    for sgy in (-1, 1):
+        thin.append((wd, T.polyline([(0, sgy * hd/2), (xin, sgy * hd/2)])))
+        thin.append((wd, T.polyline([(A - (xin), sgy * hd/2), (A, sgy * hd/2)])))
+    for x in (0.52 * hd, A - 0.52 * hd):
+        thin.append((wd, T.polyline([(x, -hd/2), (x, hd/2)])))
+    # cast passage and lever casting (y relative to the pipe centreline), mechanism boss
+    top_ = [P(q) for q in _spline(_FT_TOP)]
+    bot_ = [P(q) for q in _spline(_FT_BOT)]
+    for pts_, yy in ((top_, -hd / 2), (bot_, hd / 2)):          # start the passage lines on the hub edges
+        for i in range(min(8, len(pts_))):
+            w_ = 1 - i / 8
+            pts_[i] = (pts_[i][0], pts_[i][1] * (1 - w_) + yy * w_)
+    thin.append((wd, T.polyline(top_)))
+    thin.append((wd * 1.3, T.polyline(bot_)))
+    thin.append((wd, T.polyline([P(q) for q in _spline(_FT_LEVER)])))
+    bc = P((137.5, 219))
+    for rr, w in ((7.8, wd * 1.15), (4.2, wd)):
+        thin.append((w, T.circle(bc[0], bc[1], rr * k)))
+    q = 1.8 * k
+    thin.append((wd, T.polyline([(bc[0] - q, bc[1]), (bc[0], bc[1] - q), (bc[0] + q, bc[1]), (bc[0], bc[1] + q)], closed=True)))
+    # cover nuts
+    for bx, by in bolts:
+        thin.append((wd * 1.1, T.polyline([(bx + 6.6*k*math.cos(math.radians(a)), by + 6.6*k*math.sin(math.radians(a)))
+                                           for a in range(0, 360, 60)], closed=True)))
+    thin.append((wd, T.polyline([(cx - pw, top - ph*0.15), (cx + pw, top - ph*0.15)])))      # plug shoulder
     if flanged:
-        ft, neck = e * 0.42, hub * 0.72
-        for sx, xo in ((-1, 0), (1, A)):
-            xf = xo + sx * e
-            thick.append((wo, T.polyline([(xf, -fh/2), (xf - sx*ft, -fh/2), (xf - sx*ft, fh/2), (xf, fh/2)], closed=True)))
-            for sy in (-1, 1):
-                thick.append((wo, T.polyline([(xo, sy*hub/2), (xo + sx*(e-ft)*0.25, sy*neck/2), (xf - sx*ft, sy*neck/2)])))
+        neck = hd * 0.86
+        for sx_, xo in ((-1, 0), (1, A)):
+            xf = xo + sx_ * e
+            thick.append((wo, T.polyline([(xf, -fod/2), (xf - sx_*ft, -fod/2), (xf - sx_*ft, fod/2), (xf, fod/2)], closed=True)))
+            for sgy in (-1, 1):
+                thick.append((wo, T.polyline([(xo, sgy*neck/2), (xf - sx_*ft, sgy*neck/2)])))
+            thick.append((wo, T.polyline([(xo, -neck/2), (xo, neck/2)])))
     return T.assemble(thick, thin, clip)
 
 
@@ -177,7 +268,7 @@ def ports(model, variant, d):
 ARROWS = {"TD52": lambda d: (d["A"]*0.5, d["E"]*0.12, d["A"]*0.15, "r"),
           "BPC32Y": lambda d: (d["A"]*0.13, d["A"]*0.02, d["A"]*0.13, "r"),
           "SMC32Y": lambda d: (d["A"]*0.13, d["A"]*0.02, d["A"]*0.13, "r"),
-          "FT450": lambda d: (d["A"]*0.5, d["C"]*0.36, (d["B"]+d["C"])*0.085, "r")}
+          "FT450": lambda d: (d["A"]*0.5, d["C"]*0.62, (d["B"]+d["C"])*0.075, "r")}
 
 
 def pmap(v, pts):

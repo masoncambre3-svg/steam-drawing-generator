@@ -316,6 +316,25 @@ previews. apptest.py also needs `playwright` and Chrome.
     snap onto every PC4000 / UPC-ST / UPC-STR size and variant with 0.000 error, behind on PC4000, in front on UPC.
     PC4000 1/2" and 3/4" dropped inline on pipes drawn both ways (in upstream, out downstream), then each trap snapped on.
 
+- 2026-11-18 (Mason asked for app changes this time):
+  - Pipe audit. PIPE (app.js) OD and Sch 40 / 80 walls match ASME B36.10 for every size. Fixed the 3/4" long-radius
+    elbow (B16.9 centre to end 29, was 38). Added 14", 16", 18", 20", 24" pipe, elbows, tees, reducers (the S4A-FL
+    separator lists 14" to 18"). Port check (playwright, /home/claude/work/portfit.py style: for each product and size,
+    the filled height 1.5 mm inside each end face vs the pipe OD): 495 drawings checked. End hubs narrower than the
+    pipe they take, still to fix when their TIs are attached (the PDFs were not in this session):
+    TD120M 1" butt / socket weld 27.3 vs 33.4 (one body for all sizes), UPC-ST 1" 30.5 vs 33.4, STS17-SB 1" 32.3 vs
+    33.4, IBV-C 3" screwed / flanged 76 / 66 vs 88.9 (same hub as 2"). CVS10 3/4" ASME clamp 25 vs 26.7 is fine (clamp
+    ends are tube sizes). HM34, UIB30/30H, UTD52L, UPC-STR flag only because their ports are offset or angled.
+  - Fittings moved out of the family chips to a "Fittings" button in the toolbar beside Pipe (`#tFit`, `pickFamily`).
+    Select takes the picker back to the previous family. LIB.families still contains "Fittings" (BOM ordering).
+  - Colours: 19 presets. Materials (`MATERIALS`: carbon steel, stainless steel, bronze): a Material chip row above
+    Color for products and pipe; picking one sets `mat` and the material colour; changing colour afterwards keeps `mat`.
+    BOM: Material column in the dialog / CSV, appended to the description in the table on the drawing. BUILD 14.
+  - FT450 rebuilt (`ft450_geom`, symbols.py) from Mason's TI screenshot (raster, 3/4" shown): cover plate = hull of six
+    bolt lugs, dome showing at the shoulders, cast passage and lever, boss. Picture coordinates are in `_FTP` /
+    `_FT_TOP` / `_FT_BOT` / `_FT_LEVER`. Plate from C up to 4 % of B + C under the dome top (B); width 0.87 x height,
+    clamped 0.6 to 0.88 A. Hubs 1.5 x pipe OD. Flanged: class 300 OD and thickness at A1.
+
 - USM90 and UTDS90 front views from CAD (2026-11-17, zips "USM90" and "UTDS90": usm90 / utds90 front / top / left DWG):
   - Replace the TI-built front view and the side view (both packs now have one variant, "Front view, on connector", so
     drawings with the old front view still load; old "Side view" items will not). `_cad90` in universal.py,

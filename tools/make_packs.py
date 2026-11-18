@@ -129,7 +129,9 @@ def write_index():
 # ---------------------------------------------------------------- tracers for each product line
 def build_traps(only=None):
     import symbols as SY
-    FT_NOTE = "The handbook has only a low-resolution picture of this trap, so its cover detail is redrawn by hand. Overall size follows the TI table."
+    FT_NOTE = ("Rebuilt 2026-11-18 from the TI-P026-02-US picture (raster only): cover plate as the hull of six bolt lugs, "
+               "float chamber dome showing at the shoulders, cast passage and lever outline, mechanism boss. A, A1, B, C from "
+               "the TI table; plate width, hub size (1.5 x pipe OD) and class 300 flanges are proportioned, not tabled.")
     for model, d in SY.DATA.items():
         if only and only != model:
             continue

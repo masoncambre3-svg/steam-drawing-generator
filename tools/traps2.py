@@ -85,21 +85,6 @@ DATA = {
                 "it); flange thickness is kept in proportion to the drawn flange. The TI drawing does not mark the flow "
                 "direction; in is on the left. Withdrawal distances C and D (56 above and below) are not drawn.",
     },
-    "HM34": {
-        "name": "HM34", "type": "Inverted bucket, steel, integral strainer", "ti": "TI-2-404-US",
-        "variants": ["screwed NPT", "socket weld"],
-        "sizes": _tab(S3, A=[119.4, 119.4, 180.3], B=[104.1, 104.1, 160.0], F=[66.0, 88.9, 144.8], G=[88.9, 106.7, 119.4]),
-        "source": "Vectorised from the TI picture (the sheet has no vector drawing)",
-        "note": "Section view, as the TI draws it: in on the left, out on the right, both on the same centreline. The TI "
-                "drawing is only a picture, so it was vectorised (tools/raster.py), not traced: lines follow the picture "
-                "to about 0.5 mm, joints are not as clean as a traced drawing, and the thread lines in the connections are "
-                "wavy as on the TI. Face to face A, centreline to the top of the cover F and centreline to the bottom of "
-                "the strainer housing G are from the TI table (x and y are set separately; the picture is not to scale). "
-                "The TI has one drawing for all three sizes, so the 1\" (much taller above the centreline, F 5.7\") is the "
-                "same picture stretched, not its own shape. Cover width B is not set; it comes out within 1% (1/2\", 3/4\") and 2% (1\") of the table. "
-                "Withdrawal distances C (above the cover) and H (strainer screen) are not drawn. Screwed and socket weld "
-                "have the same outline.",
-    },
 }
 _cache = {}
 
@@ -298,6 +283,7 @@ def _td120m(d, v, size):
 
 
 # ---------------------------------------------------------------- HM34 (raster)
+# Removed from the library 2026-11-18 (Mason): no DATA entry and no pack. The tracer is kept in case it comes back.
 HM34_IMG = dict(page=2, rect=(69.324, 103.597, 252.924, 304.717), px=765)
 HM34_WHITE = [(0, 0, 766, 100), (150, 95, 160, 328), (178, 95, 190, 188), (525, 95, 535, 122), (550, 95, 566, 128),
               (150, 117, 299, 127), (325, 95, 365, 113), (145, 397, 157, 404),

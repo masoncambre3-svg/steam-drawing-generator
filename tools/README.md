@@ -316,6 +316,8 @@ previews. apptest.py also needs `playwright` and Chrome.
     snap onto every PC4000 / UPC-ST / UPC-STR size and variant with 0.000 error, behind on PC4000, in front on UPC.
     PC4000 1/2" and 3/4" dropped inline on pipes drawn both ways (in upstream, out downstream), then each trap snapped on.
 
+- 2026-11-18: HM34 removed from the library (Mason). Pack and catalog entries deleted, DATA entry removed from
+  traps2.py; `_hm34` and the raster settings are left in place unused. Drawings that had one show it as missing.
 - 2026-11-18 (Mason asked for app changes this time):
   - Pipe audit. PIPE (app.js) OD and Sch 40 / 80 walls match ASME B36.10 for every size. Fixed the 3/4" long-radius
     elbow (B16.9 centre to end 29, was 38). Added 14", 16", 18", 20", 24" pipe, elbows, tees, reducers (the S4A-FL

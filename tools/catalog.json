@@ -12,7 +12,6 @@
     "TD120M-PN",
     "FT450",
     "IBV-C",
-    "HM34",
     "BPC32Y",
     "SMC32Y",
     "UFT32",
@@ -48,8 +47,7 @@
     {
      "name": "Inverted bucket",
      "products": [
-      "IBV-C",
-      "HM34"
+      "IBV-C"
      ]
     },
     {

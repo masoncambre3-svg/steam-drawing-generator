@@ -19,7 +19,6 @@ SDG.index({
   "steam-traps/TD120M-PN/TD120M-PN.js",
   "steam-traps/FT450/FT450.js",
   "steam-traps/IBV-C/IBV-C.js",
-  "steam-traps/HM34/HM34.js",
   "steam-traps/BPC32Y/BPC32Y.js",
   "steam-traps/SMC32Y/SMC32Y.js",
   "steam-traps/UFT32/UFT32.js",
@@ -94,8 +93,7 @@ SDG.index({
    [
     "Inverted bucket",
     [
-     "IBV-C",
-     "HM34"
+     "IBV-C"
     ]
    ],
    [

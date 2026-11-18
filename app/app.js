@@ -78,7 +78,7 @@ const MATERIALS = [["cs", "Carbon steel", "#4b535e"], ["ss", "Stainless steel", 
 const matName = k => (MATERIALS.find(m => m[0] === k) || [0, ""])[1];
 const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
-const BUILD = "14";
+const BUILD = "15";
 const LOGO = window.SDG_LOGO || null;                       // vector Spirax Sarco logo, app/logo.js
 const STYLE0 = { shade: true, blackLines: false, units: "ftin", prec: 1 };
 const UNITS = [["ftin", "ft-in"], ["in", "in"], ["mm", "mm"]];
@@ -371,7 +371,7 @@ const gridSnap = v => Math.round(v / GRID) * GRID;
 const lenStep = () => doc.style.units === "mm" || doc.style.prec < 0.2 ? GRID : doc.style.prec * 25.4;
 // Returns [x, y, snappedToAConnection, directionOfThatConnection].
 // Runs lock to 45 degree steps from the last point; extraDir adds one more allowed direction (a strainer leg).
-function snapPoint(p, prev, skipId, free, extraDir) {
+function snapPoint(p, prev, skipId, free, extraDir, hv) {
   const tol = 11 / ui.view.s;
   let best = null, bd = tol;
   for (const t of snapTargets(skipId)) { const d = Math.hypot(t[0] - p[0], t[1] - p[1]); if (d < bd) { bd = d; best = t; } }
@@ -379,8 +379,8 @@ function snapPoint(p, prev, skipId, free, extraDir) {
   let c = [gridSnap(p[0]), gridSnap(p[1])], u = null;
   if (prev && !free) {
     const dx = p[0] - prev[0], dy = p[1] - prev[1], ang = Math.atan2(dy, dx) * 180 / Math.PI;
-    let a = Math.round(ang / 45) * 45;
-    if (extraDir != null && Math.abs(((ang - extraDir + 540) % 360) - 180) < 14) a = extraDir;
+    let a = Math.round(ang / (hv ? 90 : 45)) * (hv ? 90 : 45);           // Shift: horizontal or vertical only
+    if (!hv && extraDir != null && Math.abs(((ang - extraDir + 540) % 360) - 180) < 14) a = extraDir;
     const r = a * Math.PI / 180;
     u = [Math.abs(Math.cos(r)) < 1e-9 ? 0 : Math.cos(r), Math.abs(Math.sin(r)) < 1e-9 ? 0 : Math.sin(r)];
     const st = lenStep(), len = Math.max(0, Math.round((dx * u[0] + dy * u[1]) / st) * st);
@@ -855,8 +855,50 @@ function addProduct() {
 }
 function finishPipe() {
   const d = ui.draft; ui.draft = null; ui.cursor = null;
-  if (d && d.pts.length > 1) { const it = Object.assign({ id: nextId++, type: "pipe", pts: d.pts }, ui.pipe); doc.items.push(it); commit(); } else refresh();
+  if (d && d.pts.length > 1) { const it = Object.assign({ id: nextId++, type: "pipe", pts: d.pts }, ui.pipe); doc.items.push(it); joinNote(joinPipes(it)); commit(); } else refresh();
 }
+// Two pipes of the same size and schedule that meet end to end become one pipe (Mason, 2026-11-18): a corner gets the
+// pipe tool's long-radius bend instead of a notch, and a straight joint loses its seam. The pipe that was there first
+// keeps its direction (flow), colour, material and label. Not joined: different size or schedule, a joint on a
+// product connection, or three or more pipe ends at one point (that is a tee or a cross). Returns how many joins.
+function joinPipes(it) {
+  let n = 0;
+  for (let pass = 0; pass < 2 && it; pass++) {
+    for (const endI of [0, 1]) {
+      const P = endI ? it.pts[it.pts.length - 1] : it.pts[0];
+      const onPort = doc.items.some(s => s.type === "sym" && valid(s) && portsOf(s).some(q => near(q, P)));
+      if (onPort) continue;
+      const ends = doc.items.filter(q => q.type === "pipe" && q.id !== it.id && (near(q.pts[0], P) || near(q.pts[q.pts.length - 1], P)));
+      if (ends.length !== 1) continue;
+      const q = ends[0];
+      if (q.nps !== it.nps || q.sch !== it.sch) continue;
+      if (q.pts.length + it.pts.length > 2 && near(q.pts[0], q.pts[q.pts.length - 1])) continue;
+      const qs = near(q.pts[0], P), mine = endI ? it.pts.slice() : it.pts.slice().reverse();   // mine ends at P
+      // q keeps its direction: P at q's start means mine comes first, else q comes first and mine is reversed onto its end
+      const pts = qs ? [...mine.slice(0, -1), ...q.pts] : [...q.pts, ...mine.slice(0, -1).reverse()];
+      q.pts = dropStraight(pts.map(p => [r2(p[0]), r2(p[1])]));
+      doc.items = doc.items.filter(x => x.id !== it.id);
+      if (ui.set.includes(it.id)) selectIds(ui.set.filter(x => x !== it.id).concat(ui.set.includes(q.id) ? [] : [q.id]));
+      it = q; n++;
+      break;
+    }
+  }
+  return n;
+}
+// points where the pipe carries straight on are not turns
+function dropStraight(pts) {
+  const out = [pts[0]];
+  for (let i = 1; i < pts.length - 1; i++) {
+    const a = out[out.length - 1], b = pts[i], c = pts[i + 1];
+    const cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]), dt = (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1]);
+    if (Math.abs(cr) < 1e-6 * (1 + Math.abs(dt)) && dt > 0) continue;
+    if (near(a, b, 0.01)) continue;
+    out.push(b);
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+function joinNote(n) { if (n) say(n > 1 ? "Joined to the pipes at both ends." : "Joined to the pipe it meets.", "ok"); }
 function del() { if (!ui.set.length) return; const k = new Set(ui.set); doc.items = doc.items.filter(i => !k.has(i.id)); selectIds([]); commit(); }
 // move an item by (dx, dy) from its saved copy o
 function shiftItem(it, o, dx, dy) {
@@ -936,7 +978,7 @@ cv.addEventListener("pointerdown", e => {
   if (ui.tool === "pipe") {
     if (dbl && ui.draft) { finishPipe(); return; }          // double-click ends the run
     const prev = ui.draft && ui.draft.pts[ui.draft.pts.length - 1];
-    const sp = snapPoint(w, prev, null, e.altKey, ui.draft && ui.draft.pts.length === 1 ? ui.draft.dir : null), p = sp.slice(0, 2);
+    const sp = snapPoint(w, prev, null, e.altKey && !e.shiftKey, ui.draft && ui.draft.pts.length === 1 ? ui.draft.dir : null, e.shiftKey), p = sp.slice(0, 2);
     if (!ui.draft) ui.draft = { pts: [p], dir: sp[3] };
     else if (Math.hypot(p[0] - prev[0], p[1] - prev[1]) > 0.5) ui.draft.pts.push(p);
     draw();
@@ -973,7 +1015,9 @@ cv.addEventListener("pointerdown", e => {
     ui.drag = { kind: "grip", id: it.id, gp, start: w, v0: it.prm[gp.k] !== undefined ? it.prm[gp.k] : EQ[it.product].defaults[gp.k], anchor: symXform(it)([0, 0]), moved: false };
     return;
   }
-  if (h && selected()) { ui.drag = { kind: "handle", id: ui.sel, i: +h.dataset.h, moved: false }; return; }
+  if (h && selected()) {
+    const it = selected(), i = +h.dataset.h, nb = it.type === "pipe" ? it.pts[i === 0 ? 1 : i - 1] : null;   // Shift: level / plumb with this
+    ui.drag = { kind: "handle", id: ui.sel, i, moved: false, orig0: nb ? JSON.stringify(nb) : null }; return; }
   if (g) {
     const id = +g.dataset.id, it = doc.items.find(i => i.id === id), ids = (e.altKey ? [it] : groupOf(it)).map(i => i.id);
     if (e.shiftKey) {                                     // add to the selection, or take back out
@@ -997,7 +1041,7 @@ cv.addEventListener("pointermove", e => {
   const w = toWorld(e), d = ui.drag;
   if (!d) {
     if (ui.draft) { const prev = ui.draft.pts[ui.draft.pts.length - 1];
-      ui.cursor = ui.tool === "pipe" ? snapPoint(w, prev, null, e.altKey, ui.draft.pts.length === 1 ? ui.draft.dir : null).slice(0, 2) :
+      ui.cursor = ui.tool === "pipe" ? snapPoint(w, prev, null, e.altKey && !e.shiftKey, ui.draft.pts.length === 1 ? ui.draft.dir : null, e.shiftKey).slice(0, 2) :
         ui.tool === "dim" && ui.draft.pts.length === 1 ? dimSnap(w) : w; draw(); }
     return;
   }
@@ -1013,34 +1057,48 @@ cv.addEventListener("pointermove", e => {
     const q = symXform(it)([0, 0]); it.x += d.anchor[0] - q[0]; it.y += d.anchor[1] - q[1];
     reconnect(); d.moved = true; draw(); panel(); return;
   }
+  const lock = e.shiftKey && d.kind === "move" ? (Math.abs(w[0] - d.start[0]) >= Math.abs(w[1] - d.start[1]) ? "x" : "y") : null;
+  const dxy = () => lock === "x" ? [w[0] - d.start[0], 0] : lock === "y" ? [0, w[1] - d.start[1]] : [w[0] - d.start[0], w[1] - d.start[1]];
   if (d.kind === "move" && d.ids.length > 1) {              // several items move together, on the grid or onto a connection
-    const dx = w[0] - d.start[0], dy = w[1] - d.start[1], items = d.ids.map(i => doc.items.find(q => q.id === i)).filter(Boolean);
+    const [dx, dy] = dxy(), items = d.ids.map(i => doc.items.find(q => q.id === i)).filter(Boolean);
     items.forEach(it => shiftItem(it, JSON.parse(d.orig[it.id]), dx, dy));
     const tol = 11 / ui.view.s, targets = snapTargets(d.skip), mine = [];
     for (const it of items) { if (it.type === "sym") mine.push(...portsOf(it)); if (it.type === "pipe") mine.push(it.pts[0], it.pts[it.pts.length - 1]); }
     let best = null, bd = tol;
-    for (const p of mine) for (const t of targets) { const q = Math.hypot(t[0] - p[0], t[1] - p[1]); if (q < bd) { bd = q; best = [t[0] - p[0], t[1] - p[1]]; } }
-    const sx = best ? dx + best[0] : gridSnap(dx), sy = best ? dy + best[1] : gridSnap(dy);
+    for (const p of mine) for (const t of targets) { const q = Math.hypot(t[0] - p[0], t[1] - p[1]); if (q < bd && !(lock === "x" && Math.abs(t[1] - p[1]) > 0.01) && !(lock === "y" && Math.abs(t[0] - p[0]) > 0.01)) { bd = q; best = [t[0] - p[0], t[1] - p[1]]; } }
+    const sx = best ? dx + best[0] : lock === "y" ? 0 : gridSnap(dx), sy = best ? dy + best[1] : lock === "x" ? 0 : gridSnap(dy);
     items.forEach(it => shiftItem(it, JSON.parse(d.orig[it.id]), sx, sy));
     reconnect(); d.moved = true; draw(); return;
   }
   const it = doc.items.find(i => i.id === d.id); if (!it) return;
   d.moved = true;
   if (d.kind === "handle") {
-    if (it.type === "pipe") it.pts[d.i] = snapPoint(w, null, it.id, true).slice(0, 2);
+    if (it.type === "pipe") {
+      const nb = e.shiftKey ? JSON.parse(d.orig0 || "null") : null;
+      it.pts[d.i] = snapPoint(w, nb, it.id, !nb, null, !!nb).slice(0, 2);
+    }
     else if (it.type === "dim") {
       if (d.i < 2) it[d.i ? "b" : "a"] = dimSnap(w);
       else { const g = dimGeom(it); it.off = Math.round(((w[0] - it.a[0]) * g.n[0] + (w[1] - it.a[1]) * g.n[1]) * 100) / 100; }
     } else it[d.i ? "b" : "a"] = [Math.round(w[0]), Math.round(w[1])];
   } else {
-    const o = JSON.parse(d.orig[it.id]), dx = w[0] - d.start[0], dy = w[1] - d.start[1];
-    if (it.type === "pipe") { const sx = gridSnap(dx), sy = gridSnap(dy); it.pts = o.pts.map(p => [p[0] + sx, p[1] + sy]); }
+    const o = JSON.parse(d.orig[it.id]), [dx, dy] = dxy();
+    if (it.type === "pipe") { const sx = lock === "y" ? 0 : gridSnap(dx), sy = lock === "x" ? 0 : gridSnap(dy); it.pts = o.pts.map(p => [p[0] + sx, p[1] + sy]); }
     else if (it.type === "arrow") { it.a = [o.a[0] + dx, o.a[1] + dy]; it.b = [o.b[0] + dx, o.b[1] + dy]; }
-    else if (it.type === "dim") { const sx = gridSnap(dx), sy = gridSnap(dy); it.a = [o.a[0] + sx, o.a[1] + sy]; it.b = [o.b[0] + sx, o.b[1] + sy]; }
+    else if (it.type === "dim") { const sx = lock === "y" ? 0 : gridSnap(dx), sy = lock === "x" ? 0 : gridSnap(dy); it.a = [o.a[0] + sx, o.a[1] + sy]; it.b = [o.b[0] + sx, o.b[1] + sy]; }
     else {
       it.x = o.x + dx; it.y = o.y + dy;
-      if (it.type === "sym") { const hit = snapSym(it, d.skip); d.inline = d.free && !hit ? findInline(it, d.skip) : null; }
-      else { it.x = gridSnap(it.x); it.y = gridSnap(it.y); }
+      if (it.type === "sym") {
+        let hit = snapSym(it, d.skip);
+        if (lock && ((lock === "x" && Math.abs(it.y - o.y) > 0.01) || (lock === "y" && Math.abs(it.x - o.x) > 0.01))) {
+          // Shift: stay on the line; snap along it only (connection in line, else the grid)
+          it.x = o.x + dx; it.y = o.y + dy; hit = false;
+          const p0 = portsOf(it)[0];
+          if (lock === "x") it.x += gridSnap(p0[0]) - p0[0]; else it.y += gridSnap(p0[1]) - p0[1];
+        }
+        d.inline = d.free && !hit ? findInline(it, d.skip) : null;
+      }
+      else { if (lock !== "y") it.x = o.x + gridSnap(dx); if (lock !== "x") it.y = o.y + gridSnap(dy); if (!lock) { it.x = gridSnap(it.x); it.y = gridSnap(it.y); } }
     }
   }
   reconnect();
@@ -1059,6 +1117,11 @@ function endDrag() {
   if (d && d.moved && d.kind === "move" && d.inline) {
     const it = doc.items.find(i => i.id === d.id);
     if (it && applyInline(it, d.inline)) { commit(); say("Cut into the pipe. Mirror (M) turns it round if the flow runs the other way.", "ok"); return; }
+  }
+  if (d && d.moved && (d.kind === "handle" || d.kind === "move")) {        // a pipe end dragged or moved onto another pipe end
+    let n = 0;
+    for (const id of d.kind === "handle" ? [d.id] : d.ids) { const it = doc.items.find(i => i.id === id); if (it && it.type === "pipe") n += joinPipes(it); }
+    joinNote(n);
   }
   if (d && d.moved && d.kind !== "pan") commit(); else draw();
 }
@@ -1541,9 +1604,9 @@ const KEYS = [
     ["Ctrl+D", "Duplicate"], ["Ctrl+A", "Select everything"], ["Ctrl+G", "Group"], ["Ctrl+Shift+G", "Ungroup"]]],
   ["Copy and undo", [["Ctrl+C", "Copy, works across drawings"], ["Ctrl+X", "Cut"], ["Ctrl+V", "Paste"],
     ["Ctrl+Z", "Undo"], ["Ctrl+Y|Ctrl+Shift+Z", "Redo"]]],
-  ["Drawing a pipe", [["0-9", "Type a run length, then Enter to place it"], ["Enter", "Finish the pipe"], ["Alt", "Hold for any angle, not just 45° steps"],
+  ["Drawing a pipe", [["0-9", "Type a run length, then Enter to place it"], ["Enter", "Finish the pipe"], ["Alt", "Hold for any angle, not just 45° steps"], ["Shift", "Hold to keep the run horizontal or vertical"],
     ["Double-click", "Finish the pipe"]]],
-  ["Mouse", [["Shift+Click", "Add to or take out of the selection"], ["Shift+Drag", "Box-select on empty sheet"], ["Alt+Click", "Pick one item inside a group"],
+  ["Mouse", [["Shift+Click", "Add to or take out of the selection"], ["Shift+Drag", "Box-select on empty sheet; on an item, move it straight across or straight up and down"], ["Alt+Click", "Pick one item inside a group"],
     ["Drag", "Drop a trap, strainer or valve onto a pipe to cut it in"], ["Scroll", "Zoom"], ["?", "This list"]]],
 ];
 function keysDialog() {

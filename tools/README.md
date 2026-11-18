@@ -402,6 +402,14 @@ previews. apptest.py also needs `playwright` and Chrome.
 - Drop-inline uses the first two ports of a product as in and out. It only offers itself when those two are
   straight through (the line between them is horizontal or vertical in the pack's own coordinates) and the product
   has at most 3 ports. **Keep "in" then "out" as the first two ports in every new pack** so new products get it.
+- Pipe joining (2026-11-18, `joinPipes`): a new pipe, a dragged pipe end or a moved pipe that ends on the end of
+  exactly one other pipe of the same NPS and schedule is merged into that pipe (it keeps its direction, colour,
+  material, label); straight-through points are dropped (`dropStraight`), so a corner gets the pipe tool's bend and a
+  straight joint loses its seam. Not joined on a product connection, or where 3+ pipe ends meet. Tees (a pipe ending
+  on another's centreline) are left as they are.
+- Shift (2026-11-18): drawing a pipe, runs go horizontal / vertical only (`snapPoint(..., hv)`); dragging a pipe end
+  keeps it level / plumb with the point next to it; moving anything (one item or a selection) locks to the axis the
+  mouse has moved further along, snapping only to connections in line, else the grid along that axis.
 - Mirror swaps in and out in place for products whose in and out are level (same y in the pack), so an inline
   product stays on its pipe.
 - Assemblies (`sdg-assemblies`) and the clipboard (`sdg-clip`) are in localStorage with positions relative to the

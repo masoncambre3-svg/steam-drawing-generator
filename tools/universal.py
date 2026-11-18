@@ -324,25 +324,25 @@ def _uib(self):
 
 
 DATA["UTD52L"] = {
-    "name": "UTD52L", "type": "Thermodynamic, bar stock, on strainer connector", "ti": "TI-P614-04-US",
-    "sizes": {'1/2"': {"Cap top to centreline": 38.1, "Centreline to strainer bottom": 76.2}},
-    "variants": ["Strainer connector"], "variantLabel": "Connector",
-    "source": "Vectorised from the TI picture (the sheet has no vector drawing)",
-    "note": "Front view on a 1/2\" strainer connector, as the TI draws it (third view on page 3): pipe left to right, "
-            "strainer leg down on the inlet side. The TI drawing is only a picture, so it was vectorised "
-            "(tools/raster.py), not traced: lines follow the picture to within about 0.3 mm, but joints are not as clean as a traced drawing. "
-            "Heights are from the TI: 1.5\" cap top to centreline, 3.0\" centreline to the bottom of the strainer. "
-            "The TI gives no face to face for the connector; it is measured from the picture at the same scale "
-            "(about 80 mm) and the connections are there. The connector is sold separately (TI-2-519-US, not "
-            "attached), so 3/4\" and 1\" connectors are not drawn.",
+    "name": "UTD52L", "type": "Thermodynamic, for pipeline connectors, front view", "ti": "TI-P614-04-US",
+    "sizes": {"UTD52L": {}}, "variants": ["-"], "sizeLabel": "Model",
+    "source": "Spirax 2D CAD (UTD52L connector 173C front DWG), 1:1",
+    "note": "Front view from Spirax's 2D CAD of the UTD52L (front DWG, visible edges only), 1:1: the trap seen from "
+            "the connector side, flange 67 round about the spigot, the two connector bolts above and below it, 50.8 "
+            "apart, and the hex body and cap standing up behind (cap top 48.1 above the spigot centreline). The one "
+            "connection point is the bolt centre (= spigot centre), so it snaps onto a connector's trap point. "
+            "Replaces the vectorised TI picture on a strainer connector (2026-11-18); _utd52l still builds that.",
 }
+# Old pack (before 2026-11-18): TI-P614-04-US picture of the trap on a 1/2" strainer connector, vectorised. Kept for reference.
+_UTD52L_TI = {'1/2"': {"Cap top to centreline": 38.1, "Centreline to strainer bottom": 76.2}}
 
 
 def _utd52l(self):
     """TI-P614-04-US p3, third view, picture xref 30 (2219 x 643 px). y above and below the centreline each set from
     its TI dimension; x at the mean of the two scales."""
     import raster as R
-    up, dn = self.d["Cap top to centreline"], self.d["Centreline to strainer bottom"]
+    d = _UTD52L_TI['1/2"']
+    up, dn = d["Cap top to centreline"], d["Centreline to strainer bottom"]
     lw = 0.6
     white = [(1466, 70, 1545, 93), (1185, 226, 1199, 237), (1497, 226, 1545, 237), (1185, 509, 1398, 520),
              (1212, 228, 1286, 235), (1424, 228, 1489, 235),           # dimension lines and the centre line
@@ -633,4 +633,22 @@ def _utds46mcad(self):
         self.d["BDV2 outlet below centreline"] = 44.45
 
 
-TRACERS = {"UFT32": _uft32cad, "USM90": _cad90, "UTDS90": _cad90, "UTD52L": _utd52l, "UFT14HC": _uft14hccad, "UBP32": _ubp32, "UTDS46M": _utds46mcad, "UTDS46M-BDV2": _utds46mcad, "UIB45": _uib, "UIB30": _uib, "UIB30H": _uib}
+
+# UTD52L front view from Spirax's 2D CAD (Mason, 2026-11-18: utd52l_connector_173c front / top / left DWG).
+# tools/cad/UTD52L-front.json is the front DWG's MAIN-1 layer, origin CAD x -87.27, y 12.21. Measured:
+#   front view: flange circle r 33.5 (67) and spigot circles (r 4.95 .. 19.19) about (-87.27, 12.21); bolt hexes centred
+#               (-87.27, 37.61) and (-87.27, -13.19), 50.8 apart vertical -> trap point = bolt centre = origin; locating
+#               notch r 3.18 on the flange's left edge; cap top y 60.32 (48.11 above the spigot centreline)
+#   left view:  spigot axis y 12.21, bolts y 37.61 / -13.19; flange x -63.04..-50.03, y -21.28..45.71 (67); spigot face
+#               x -47.81; bolt heads to x -26.66; body end x -115.51 (spigot face to body end 67.7); cap top y 60.32
+#   top view:   flange 66.84 across (x -120.62..-53.78)
+UTD52L_CAD = Path(__file__).with_name("cad") / "UTD52L-front.json"
+
+
+def _utd52lcad(self):
+    lw = 0.35
+    pl = json.load(open(UTD52L_CAD))["polylines"]
+    _finish(self, [T.polyline(p) for p in pl if len(p) > 1], lw, {"trap": (0.0, 0.0)}, 1.0, close=6)
+    self.d = {"Flange": 67, "Cap top to centreline": 48.1, "Spigot face to body end": 67.7, "Bolt spacing": 50.8}
+
+TRACERS = {"UFT32": _uft32cad, "USM90": _cad90, "UTDS90": _cad90, "UTD52L": _utd52lcad, "UFT14HC": _uft14hccad, "UBP32": _ubp32, "UTDS46M": _utds46mcad, "UTDS46M-BDV2": _utds46mcad, "UIB45": _uib, "UIB30": _uib, "UIB30H": _uib}

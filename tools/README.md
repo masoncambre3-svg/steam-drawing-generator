@@ -40,7 +40,7 @@ previews. apptest.py also needs `playwright` and Chrome.
                   keep their shape where the body is stretched) and `_finish` (silhouette, box, ports from mm chains)
 - `universal.py`  universal (two bolt) trap units and the 4-bolt USM90 / UTDS90 (CAD front views, `_cad90`): UFT32, UFT14HC, UBP32, UTDS46M (trap unit only, one port at the
                   connector face), UIB45 / UIB30 / UIB30H (front view on the PC10HP, in and out at the connector ends),
-                  UTD52L (vectorised picture). Also the shared helpers `_chains` (strokes with colour and dash flag),
+                  UTD52L (CAD front view; the old vectorised picture is `_utd52l`). Also the shared helpers `_chains` (strokes with colour and dash flag),
                   `_pw` (piecewise map), `_finish` (silhouette, box, ports; `hidden` closes gaps without drawing them)
 - `connectors.py` STS17.2 trapping stations (four horizontal types) and PC4000 / PC4001 / PC40
 - `raster.py`    vectorise a raster TI picture: skeleton to polylines for strokes, filled outer contour for the fill;
@@ -262,8 +262,8 @@ previews. apptest.py also needs `playwright` and Chrome.
     wrong on the PC4000 front view until its front view is traced.
   - Product notes are no longer shown in the app (Mason: too long, pushed the panel down). Keep writing them in the
     tracers: they are the record of what was set from the TI and what was assumed, for the next session.
-  - Still to do: front views for UTD52L, UIB30 /
-    UIB45 (TI-P113-01 / -03); a trap point on STS17.2 (TI-P128-22).
+  - Still to do: front views for UIB30 /
+    UIB45 (UTD52L done from CAD 2026-11-18) (TI-P113-01 / -03); a trap point on STS17.2 (TI-P128-22).
   - Test a new pair with /tmp-style playwright: add the connector, add the trap a few mm off the trap point, check
     portsOf(trap)[0] equals portsOf(connector)[2]; then drop the connector on pipes both ways (applyInline).
 
@@ -315,6 +315,25 @@ previews. apptest.py also needs `playwright` and Chrome.
   - Tests: `apptest.py "Steam traps"` placed 125, no errors. Pair test (playwright, view scale 2, trap put 3 mm off): both
     snap onto every PC4000 / UPC-ST / UPC-STR size and variant with 0.000 error, behind on PC4000, in front on UPC.
     PC4000 1/2" and 3/4" dropped inline on pipes drawn both ways (in upstream, out downstream), then each trap snapped on.
+
+- UTD52L front view from CAD (2026-11-18, utd52l_connector_173c front / top / left DWG, sent loose, not zipped):
+  - Mason's message said "replace current USM 90 and UTDS90" but only the UTD52L DWGs were attached (looks like a leftover
+    from his message template). Read as: replace the UTD52L pack; USM90 / UTDS90 untouched. The product line in his
+    template was not filled in, so model / group were taken from the file name and the existing catalog entry.
+  - Same set-up as UFT32 / UTDS46M: trap unit with its two connector bolts, front view = connector side. Origin CAD x
+    -87.27, y 12.21 (flange r 33.5 and spigot circles centre = bolt centre). `_utd52lcad` in universal.py,
+    tools/cad/UTD52L-front.json (169 pieces -> 24 polylines). Old picture tracer `_utd52l` kept, reads `_UTD52L_TI`.
+  - Measured: bolt hexes at y 37.61 / -13.19, 50.8 apart; flange 67; cap top 48.11 above the spigot centreline; left
+    view spigot face x -47.81 to body end x -115.51 = 67.7. No TI table attached this time, so not checked against it
+    (the old TI's 1.5" cap-to-centreline is to the connector pipe centreline, not the spigot, so it doesn't compare).
+  - Size is now "UTD52L" (sizeLabel Model, variant "-"); old drawings with `UTD52L|1/2"|Strainer connector` show it as
+    missing.
+  - Tests: `apptest.py "Steam traps"` placed 117, no errors. Pair test (/home/claude/work/pair2.py style, view scale 2, trap
+    3 / 2 mm off): snaps with 0.000 error onto every PC4000 / UPC-ST / UPC-STR size and variant (22), behind on PC4000,
+    in front on UPC. PC4000 1/2" and 3/4" dropped inline on pipes drawn both ways (in upstream, both pipe pieces kept),
+    then the trap snapped on. In a test, put the connector's port midpoint within the pipe's inline tolerance (0.8 x OD
+    for 1/2") or findInline returns nothing.
+  - LibreDWG build took about 5 min (background).
 
 - 2026-11-18: HM34 removed from the library (Mason). Pack and catalog entries deleted, DATA entry removed from
   traps2.py; `_hm34` and the raster settings are left in place unused. Drawings that had one show it as missing.

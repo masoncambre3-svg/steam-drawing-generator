@@ -52,6 +52,8 @@ previews. apptest.py also needs `playwright` and Chrome.
 - `traps2.py`     TDC46M, TD62M-FL (flanged TD62M / TD62LM), TD120M and TD120M-PN, HM34 (raster); flange OD table `OD`;
                   helpers `_rigid` (move a group of chains as one piece, e.g. a flow arrow), `_cut_x` (cut a drawing off at
                   two x values, for welded ends), `_fy_flange` (flange y that still meets the neck)
+- `traps3.py`     ball float traps FT14 (screwed and flanged TIs), FTC62, FTC80; `_visible` (keeps only the strokes that
+                  print, see notes 2026-11-19), `_axial` (body at one scale, hubs / necks / flanges to A), `_snap`
 - `make_packs.py` writes packs, previews, catalog and index
 - `gridsheet.py`  every size and variant of the products named, all at ONE scale, wrapped into rows: the preview
                   image to send (`python3 tools/gridsheet.py pumps /tmp/p PTF4,PPEC`)
@@ -406,6 +408,38 @@ previews. apptest.py also needs `playwright` and Chrome.
     (PTF4, APT10, APT14, APT14SHC, PPEC iron and steel).
   - Not done: PTF4 vent assist outlets and gauge connections as ports; PPEC plan view and the BSP / SW options;
     APT14 side view (D, F) and withdrawal H; APT10 front view (in / out face you there).
+
+- Ball float traps FT14, FTC62, FTC80 (TI-S02-03, TI-S02-26, TI-P179-13, TI-P179-02-US), 2026-11-19:
+  - Mason's template still had the placeholders for products / sizes / view; read as the example values (FT14, FTC62,
+    FTC80, every size and connection on the TIs, the view the TI dimension drawing shows). All three are one pack each
+    with the connection as the variant (FT14 screwed and flanged come from two TIs but share sizes, so one pack).
+  - View: the front elevation with the pipe connections left and right (the drawing that carries A). Side / end views
+    are not drawn. All TIs draw R-L (FTC62 arrow on the cover); drawings are mirrored so in is at x = 0.
+  - TI-P179-13 p8 (FTC62) holds HIDDEN COPIES of the linework, offset 28.35 pt across and 17 pt down, that do not print
+    (covered or clipped). `get_drawings()` returns them all. `traps3._visible` renders the page (zoom 6) and keeps a
+    stroke only where there is ink under it: fully inked chains keep their own segments, partly inked ones are cut into
+    the inked pieces. Pieces of a chain with less than half its length inked are kept only if 8 pt or longer (a hidden
+    copy shows ink where it happens to lie on a printed line). Dimension lines that lie on the outline need drop boxes,
+    which `_visible` applies to the cut pieces too. Use `_visible` for any sheet whose plot shows doubled outlines.
+  - Flange faces and backs are drawn up to 0.7 pt skew; inside a stretched neck that turns into a visible lean.
+    `_snap` puts points within 0.7 pt of a face / back x on it (FTC62).
+  - Hub / neck lengths take up A; the body keeps the scale from the tabled height (FT14 B, FTC62 F). The FTC62
+    screwed hubs come out shorter than drawn (A 190 against 212 at the F scale).
+  - FT14 screwed 1": drawn hub is 31 mm at B scale, under the 1" pipe OD, so `_ft14_hub` redraws its top / bottom
+    lines at 42 mm (1.25 x OD, assumed) running in to the cover edge, and the end faces at that height.
+  - FTC80: drawn to scale (3.13 mm/pt both ways); A SW and A ASME 600 1-1/2" match exactly. B and D come out 424 / 113
+    at that scale, so the feet are shortened 2.5 and the dome stretched 8.7 (between the boss top and the cover bolts)
+    to hit B 430 / D 110.5. Flanges and necks are DASHED on the TI: `_chains(..., dashed=True)` reads them and they are
+    drawn solid for ASME 600. "plug": everything above the cover boss (the BDV2) is left off and a 19 mm hex plug is
+    drawn up to B 390 (about 6 mm tall; size assumed).
+  - Flange OD: EN 1092-1 PN16 / PN100, B16.5 Class 150 / 600, JIS B 2220 20K (`traps3.OD`). Thickness scales with the
+    drawn flange (not the standard).
+  - Checks: every size and variant measured from the stroke centrelines (A port to port, B / F / D, flange OD) matches
+    the table (`/home/claude/work/check.py` style: build `traps3.Trap`, flatten `strokes`). `apptest.py "Steam traps"`
+    placed 149, no errors. Drop-inline test (playwright): all 32 symbols dropped on a pipe drawn each way, in on the
+    upstream pipe end, out on the downstream, both pipe ends followed the trap when it moved (64 cases, none failed).
+  - Not done: FT14V (vertical connections), FT14-C needle valve, FTC62 / FTC80 side and end views, FTC80 PN100 (no
+    dimensions on the US sheet), BDV2 outlet and drain as ports.
 
 ## Conventions the app relies on
 

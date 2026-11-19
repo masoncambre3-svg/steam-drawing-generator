@@ -168,6 +168,14 @@ def build_traps(only=None):
                    dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
                         variantLabel="Connection", source=d.get("source", "Traced from the TI outline drawing"),
                         note=d["note"]), syms)
+    import traps3 as T3                                   # FT14, FTC62, FTC80 (ball float)
+    for model, d in T3.DATA.items():
+        if only and only != model:
+            continue
+        syms = {f"{model}|{size}|{v}": parts(T3.Trap(model, size, v)) for size in d["sizes"] for v in d["variants"]}
+        write_pack("steam-traps", "Steam traps", model,
+                   dict(name=d["name"], type=d["type"], ti=d["ti"], sizes=list(d["sizes"]), variants=d["variants"],
+                        variantLabel="Connection", source="Traced from the TI outline drawing", note=d["note"]), syms)
 
 
 def build_strainers(only=None):

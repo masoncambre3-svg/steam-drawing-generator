@@ -18,6 +18,9 @@ SDG.index({
   "steam-traps/TD120M/TD120M.js",
   "steam-traps/TD120M-PN/TD120M-PN.js",
   "steam-traps/FT450/FT450.js",
+  "steam-traps/FT14/FT14.js",
+  "steam-traps/FTC62/FTC62.js",
+  "steam-traps/FTC80/FTC80.js",
   "steam-traps/IBV-C/IBV-C.js",
   "steam-traps/BPC32Y/BPC32Y.js",
   "steam-traps/SMC32Y/SMC32Y.js",
@@ -87,7 +90,10 @@ SDG.index({
    [
     "Float & thermostatic",
     [
-     "FT450"
+     "FT450",
+     "FT14",
+     "FTC62",
+     "FTC80"
     ]
    ],
    [

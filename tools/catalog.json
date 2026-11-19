@@ -11,6 +11,9 @@
     "TD120M",
     "TD120M-PN",
     "FT450",
+    "FT14",
+    "FTC62",
+    "FTC80",
     "IBV-C",
     "BPC32Y",
     "SMC32Y",
@@ -41,7 +44,10 @@
     {
      "name": "Float & thermostatic",
      "products": [
-      "FT450"
+      "FT450",
+      "FT14",
+      "FTC62",
+      "FTC80"
      ]
     },
     {

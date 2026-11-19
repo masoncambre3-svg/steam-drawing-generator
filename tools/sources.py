@@ -42,3 +42,7 @@ PTF4_PDF = os.environ.get("SDG_PTF4", UP + "8a33e252-PTF4-TI-P207-10-US.pdf")   
 PPEC_PDF = os.environ.get("SDG_PPEC", UP + "ac3b30a5-PPEC-TI-P208-02-US.pdf")             # TI-P208-02-US, PPEC low-profile pump
 APT14_PDF = os.environ.get("SDG_APT14", UP + "3b11111f-APT14-TI-P612-02-EN.pdf")          # TI-P612-02, APT14 / APT14HC / APT14SHC
 APT10_PDF = os.environ.get("SDG_APT10", UP + "afc4b36e-APT10-TI-P612-28-EN.pdf")          # TI-P612-28, APT10 / APT10SS
+FT14S_PDF = os.environ.get("SDG_FT14S", UP + "98724bc3-FT14-TI-S02-03-EN.pdf")           # TI-S02-03, FT14 screwed
+FT14F_PDF = os.environ.get("SDG_FT14F", UP + "695d1c55-FT14-TI-S02-26-EN.pdf")           # TI-S02-26, FT14 flanged
+FTC62_PDF = os.environ.get("SDG_FTC62", UP + "761e1d1d-FTC62-TI-P179-13-EN.pdf")         # TI-P179-13, FTC62
+FTC80_PDF = os.environ.get("SDG_FTC80", UP + "5bab9f17-FTC80FB-TI-P179-02-US.pdf")       # TI-P179-02, FTC80

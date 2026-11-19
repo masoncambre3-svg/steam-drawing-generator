@@ -468,8 +468,8 @@ previews. apptest.py also needs `playwright` and Chrome.
   - Located 1999 of 2358 table values across all packs. Under 75 %: the pumps (PTF, PTF-TOP, PTF4, PPEC, APT10/14), IBV-C,
     FT450, BPC32Y, the universal trap units and connectors, FIG16L, DCV10, SDCV44, MSC / MSD: their dimensions are to internal
     features or to parts of a view. Chord matches are found by value, so on a busy drawing one can land on the wrong feature
-    (PTF D looked doubtful). When a TI is attached again, write `dimLines` into the pack from the tracer (parts() passes extra
-    keys through? it does not yet: add `dimLines` to the dict parts() returns) so that product is exact.
+    (PTF D looked doubtful). When a TI is attached again, have the tracer write `dimLines` into each symbol (make_packs `parts()`
+    does not pass them yet: add them to the dict it returns) so that product is exact.
   - Overlay: `dimOverlay()` in draw() only (not renderAll), so it never exports. `tiDimItems(items, forReal)`; "Add them as
     dimension lines" makes dim items with `tag` (letter); dimSvg prints "tag = length" for those.
   - Reservoir: vertical taken out (Mason). Old drawings with variant "horizontal" / "vertical" draw as the horizontal one.

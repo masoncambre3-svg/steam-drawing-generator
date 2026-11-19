@@ -458,6 +458,24 @@ previews. apptest.py also needs `playwright` and Chrome.
     px tall. apptest "Steam traps" 149, no errors. apptest "Equipment" reports "items without geometry" for every equipment
     item: its check uses lookup(), which does not build equipment; they draw (symOf).
 
+- TI dimensions on the drawing, 2026-11-19 (Mason: "I have no clue what A, B, C, D and E point to"; mm column removed):
+  - Packs hold the TI values (dims) but not where they are measured. `dimSpots(s)` (app.js) uses `s.dimLines` when a pack or
+    builder gives them (`{key: [[x, y], [x, y], dir]}`, dir = [dx, dy] outward, false = drawn in place, missing = nearest side if
+    the line is near one), else matches each value to the drawing: in-out connection, overall width / height, centreline to top
+    / bottom (1 %, 0.8 mm), then chords through the fill polygons at 61 x and 61 y positions, each piece the line crosses plus
+    the overall span (0.6 %, 0.5 mm). A spot already used by another dimension of the same value is skipped. Fills with arcs or
+    curves (built-in fittings) get no chords: give them dimLines (fitGeom does; the reservoir does).
+  - Located 1999 of 2358 table values across all packs. Under 75 %: the pumps (PTF, PTF-TOP, PTF4, PPEC, APT10/14), IBV-C,
+    FT450, BPC32Y, the universal trap units and connectors, FIG16L, DCV10, SDCV44, MSC / MSD: their dimensions are to internal
+    features or to parts of a view. Chord matches are found by value, so on a busy drawing one can land on the wrong feature
+    (PTF D looked doubtful). When a TI is attached again, write `dimLines` into the pack from the tracer (parts() passes extra
+    keys through? it does not yet: add `dimLines` to the dict parts() returns) so that product is exact.
+  - Overlay: `dimOverlay()` in draw() only (not renderAll), so it never exports. `tiDimItems(items, forReal)`; "Add them as
+    dimension lines" makes dim items with `tag` (letter); dimSvg prints "tag = length" for those.
+  - Reservoir: vertical taken out (Mason). Old drawings with variant "horizontal" / "vertical" draw as the horizontal one.
+  - Flange sizes on the reservoir: Mason said the 3/4" and 2" flanges looked the same. In the app (picker and selected item,
+    playwright) they come out at B16.5 Class 150 OD, 98 and 152. Asked him which drawing showed it.
+
 ## Conventions the app relies on
 
 - Symbol key: `ID|size|variant`, sizes written like `3/4"` and `1-1/2"`.

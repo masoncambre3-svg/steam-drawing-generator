@@ -52,7 +52,7 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
 - Grouping: Shift+click or Shift+drag a box to select several items, then Group (Ctrl+G). A group moves, copies,
   rotates and deletes as one. Alt+click edits one item inside a group. Ctrl+A selects everything.
 - Equipment (app/equipment.js): U-tube exchanger, open tank with helical coil, air heater coil, jacketed kettle, reservoir
-  (pressure powered pump packages: horizontal or vertical, 0-6 top and 0-6 bottom outlets each with its own size, vent out
+  (pressure powered pump packages: horizontal, 0-6 top and 0-6 bottom outlets each with its own size, vent out
   of the top or the bottom, threaded or flanged nozzles).
   Not traced: each is drawn from the sizes you type in the panel (nozzle sizes picked from a list), so it matches
   the real unit. Select one and drag the blue diamonds to stretch it. Hidden parts (tube bundle, coil in the tank,
@@ -61,6 +61,9 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
 - Pipe turns: "Threaded elbows" (ASME B16.11 Class 3000 forged elbows drawn at each turn, bigger than the pipe, and
   counted in the bill of materials) or "Welded bends" (long-radius bends). Pipes that have never been set use threaded up
   to 2" and welded above; threaded goes up to 4". Threaded 90° elbows and tees are also in Fittings.
+- TI dimensions: tick "Show TI dimensions on the drawing" (product panel) and select a product: each TI dimension is drawn
+  on it in orange (letter and inches, to 1/16"), on screen only. "Add them as dimension lines" turns them into ordinary
+  dimensions that export. The table lists inches only and says which dimensions could not be located.
 - Page size: on a computer the page fills the window and the board takes what is left; smaller or shorter screens get a
   compact layout, and "Hide panel" (toolbar) gives the board the full width.
 - Pipe stays connected: a pipe end sitting on a product connection follows the product when it is moved, rotated,

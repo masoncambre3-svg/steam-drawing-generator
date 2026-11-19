@@ -66,7 +66,8 @@ function fitGeom(product, size, variant) {
     }
     dims = { "Centre to end": A, "Band OD": H, "Pipe OD": od };
     const lw2 = 0.5 + H * 0.008;
-    return { box: [box[0] - lw2 / 2, box[1] - lw2 / 2, box[2] + lw2, box[3] + lw2], fill: d, strokes: [[lw2, d]], arrow: null, ports, dims, flat: true };
+    return { box: [box[0] - lw2 / 2, box[1] - lw2 / 2, box[2] + lw2, box[3] + lw2], fill: d, strokes: [[lw2, d]], arrow: null, ports, dims, flat: true,
+      dimLines: { "Centre to end": [[-A, 0], [0, 0], false], "Band OD": [[-A, -h], [-A, h]], "Pipe OD": [[-r, A], [r, A], [0, 1]] } };
   }
   if (product === "ELBOW90") {
     const R = ELBOW[size];
@@ -81,7 +82,13 @@ function fitGeom(product, size, variant) {
     d = `M0,${f(-r)}L${f(t)},${f(-r)}L${f(H - t)},${f(top2)}L${f(H)},${f(top2)}L${f(H)},${f(bot2)}` + (ecc ? "" : `L${f(H - t)},${f(bot2)}L${f(t)},${f(r)}`) + `L0,${f(r)}Z`;
     ports = [[0, 0], [H, ecc ? r - r2 : 0]]; box = [0, -r, H, 2 * r]; dims = { "Length": H, "Large end OD": od, "Small end OD": r2 * 2 };
   }
-  return { box: [box[0] - lw / 2, box[1] - lw / 2, box[2] + lw, box[3] + lw], fill: d, strokes: [[lw, d]], arrow: null, ports, dims, flat: true };
+  const L = {};                                              // where each dimension is ("Show TI dimensions")
+  if (product === "ELBOW90") Object.assign(L, { "Centre to end": [[-ELBOW[size], 0], [0, 0], false], "Pipe OD": [[-ELBOW[size], -r], [-ELBOW[size], r]] });
+  else if (product === "TEE") Object.assign(L, { "Run, centre to end": [[-TEE[size], 0], [0, 0], false], "Branch, centre to end": [[0, 0], [0, TEE[size]], false],
+    "Run OD": [[-TEE[size], -r], [-TEE[size], r]], "Branch OD": [[-PIPE[variant][0] / 2, TEE[size]], [PIPE[variant][0] / 2, TEE[size]]] });
+  else { const H = REDH[size], r2 = PIPE[variant][0] / 2, ecc = product === "REDE";
+    Object.assign(L, { "Length": [[0, 0], [H, 0]], "Large end OD": [[0, -r], [0, r]], "Small end OD": [[H, ecc ? r - 2 * r2 : -r2], [H, ecc ? r : r2]] }); }
+  return { box: [box[0] - lw / 2, box[1] - lw / 2, box[2] + lw, box[3] + lw], fill: d, strokes: [[lw, d]], arrow: null, ports, dims, flat: true, dimLines: L };
 }
 function lookup(key) {
   if (LIB.symbols[key]) return LIB.symbols[key];
@@ -100,7 +107,7 @@ const MATERIALS = [["cs", "Carbon steel", "#4b535e"], ["ss", "Stainless steel", 
 const matName = k => (MATERIALS.find(m => m[0] === k) || [0, ""])[1];
 const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
-const BUILD = "16";
+const BUILD = "17";
 const LOGO = window.SDG_LOGO || null;                       // vector Spirax Sarco logo, app/logo.js
 const STYLE0 = { shade: true, blackLines: false, units: "ftin", prec: 1 };
 const UNITS = [["ftin", "ft-in"], ["in", "in"], ["mm", "mm"]];
@@ -173,7 +180,8 @@ function dimSvg(it) {
   return `<g ${id}><path d="${ext(it.a, g.p1)}${ext(it.b, g.p2)}M${f(g.p1[0])},${f(g.p1[1])}L${f(g.p2[0])},${f(g.p2[1])}" fill="none" stroke="${it.color}" stroke-width="${f(lw)}" stroke-linecap="round"/>` +
     `<polygon points="${head(g.p1, g.u)}" fill="${it.color}"/><polygon points="${head(g.p2, um)}" fill="${it.color}"/>` +
     `<text x="${f(tx)}" y="${f(ty)}" font-family="Arial, Helvetica, sans-serif" font-size="${f(s)}" fill="${it.color}" text-anchor="middle"` +
-    (Math.abs(ang) > 0.5 ? ` transform="rotate(${ang.toFixed(1)} ${f(tx)} ${f(ty)})"` : "") + `>${esc(fmtLen(g.L))}</text>` +
+    (Math.abs(ang) > 0.5 ? ` transform="rotate(${ang.toFixed(1)} ${f(tx)} ${f(ty)})"` : "") + (it.halo ? ` stroke="#ffffff" stroke-width="${f(s * 0.22)}" paint-order="stroke"` : "") +
+    `>${esc(it.label || (it.tag ? `${it.tag} = ${fmtLen(g.L)}` : fmtLen(g.L)))}</text>` +
     `<path d="M${f(g.p1[0])},${f(g.p1[1])}L${f(g.p2[0])},${f(g.p2[1])}" stroke="transparent" stroke-width="${f(Math.max(s * 1.6, 10 / ui.view.s))}"/></g>`;
 }
 function dimBox(it) {
@@ -183,6 +191,106 @@ function dimBox(it) {
   return [Math.min(...P.map(p => p[0])), Math.min(...P.map(p => p[1])), Math.max(...P.map(p => p[0])), Math.max(...P.map(p => p[1]))];
 }
 const autoDimSize = L => Math.round(Math.max(8, Math.min(50, L * 0.035)));
+
+// ---------------------------------------------------------------- where the TI dimensions are on a product (2026-11-19)
+// Packs carry the TI table values (dims) but not where they are measured. A pack or builder can give them (dimLines:
+// {key: [[x, y], [x, y]]}); otherwise each value is matched against the drawing itself, in this order: in to out
+// connection, overall width and height, centreline to top / bottom, then straight chords through the outline (a flange
+// OD, a cap width, a body height). Chords must match within 0.6 % (0.5 mm), the rest within 1 % (0.8 mm). What does not
+// match is listed as not located. Coordinates are the pack's, centreline of the linework.
+function symPolys(s) {
+  if (s._polys !== undefined) return s._polys;
+  if (/[^ZzMmLl0-9.,\s-]/.test(s.fill)) return (s._polys = null);            // arcs or curves: no chords, extents from the box
+  const P = s.fill.split(/[Zz]/).map(part => { const v = (part.match(/-?\d+\.?\d*/g) || []).map(Number), o = [];
+    for (let i = 0; i + 1 < v.length; i += 2) o.push([v[i], v[i + 1]]); return o; }).filter(q => q.length >= 3);
+  return (s._polys = P.length ? P : null);
+}
+// where a vertical (x) or horizontal (y) line crosses the outline: each piece of the product it passes through, and the
+// overall span (a cap between two flanges is its own piece)
+function chordAt(P, x, y) {
+  const spans = []; let lo = Infinity, hi = -Infinity;
+  for (const Q of P) {
+    const c = [];
+    for (let i = 0; i < Q.length; i++) {
+      const a = Q[i], b = Q[(i + 1) % Q.length];
+      if (x !== null) { if ((a[0] - x) * (b[0] - x) < 0) c.push(a[1] + (x - a[0]) / (b[0] - a[0]) * (b[1] - a[1])); }
+      else if ((a[1] - y) * (b[1] - y) < 0) c.push(a[0] + (y - a[1]) / (b[1] - a[1]) * (b[0] - a[0]));
+    }
+    c.sort((p, q) => p - q);
+    for (let i = 0; i + 1 < c.length; i += 2) { spans.push([c[i], c[i + 1]]); lo = Math.min(lo, c[i]); hi = Math.max(hi, c[i + 1]); }
+  }
+  if (spans.length > 1 && hi > lo) spans.push([lo, hi]);
+  return spans;
+}
+function dimSpots(s) {
+  if (s._spots) return s._spots;
+  const out = [], dims = s.dims || {}, num = Object.entries(dims).filter(([k, v]) => typeof v === "number" && v > 0);
+  const lw = Math.max(0, ...(s.strokes || []).map(q => q[0])), P = symPolys(s);
+  let x0, y0, x1, y1;
+  if (P) { const A = P.flat(); x0 = Math.min(...A.map(p => p[0])) + lw / 2; x1 = Math.max(...A.map(p => p[0])) - lw / 2; y0 = Math.min(...A.map(p => p[1])) + lw / 2; y1 = Math.max(...A.map(p => p[1])) - lw / 2; }
+  else { [x0, y0] = [s.box[0] + lw, s.box[1] + lw]; x1 = s.box[0] + s.box[2] - lw; y1 = s.box[1] + s.box[3] - lw; }
+  const yc = s.ports && s.ports.length ? s.ports[0][1] : 0, pr = s.ports || [];
+  const cand = [];                                         // [kind, value, a, b, outside]
+  if (pr.length >= 2) cand.push(["ports", Math.hypot(pr[1][0] - pr[0][0], pr[1][1] - pr[0][1]), pr[0].slice(0, 2), pr[1].slice(0, 2), true]);
+  cand.push(["W", x1 - x0, [x0, y1], [x1, y1], true], ["H", y1 - y0, [x1, y0], [x1, y1], true]);
+  if (y0 < yc) cand.push(["up", yc - y0, [x1, yc], [x1, y0], true]);
+  if (y1 > yc) cand.push(["down", y1 - yc, [x1, yc], [x1, y1], true]);
+  const chords = [];
+  if (P) for (let i = 0; i <= 60; i++) {
+    const fx = x0 + (x1 - x0) * (0.01 + 0.98 * i / 60), fy = y0 + (y1 - y0) * (0.01 + 0.98 * i / 60);
+    for (const cv of chordAt(P, fx, null)) chords.push(["v", cv[1] - cv[0] - lw, [fx, cv[0] + lw / 2], [fx, cv[1] - lw / 2], false]);
+    for (const ch of chordAt(P, null, fy)) chords.push(["h", ch[1] - ch[0] - lw, [ch[0] + lw / 2, fy], [ch[1] - lw / 2, fy], false]);
+  }
+  // which way the dimension line goes out of the product: the nearest side, if the measured line is near one (else drawn in place)
+  const W = x1 - x0, H = y1 - y0;
+  const side = (a, b) => {
+    const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], vert = Math.abs(b[0] - a[0]) < Math.abs(b[1] - a[1]);
+    const opts = vert ? [[m[0] - x0, [-1, 0], W], [x1 - m[0], [1, 0], W]] : [[m[1] - y0, [0, -1], H], [y1 - m[1], [0, 1], H]];
+    const o = opts[0][0] <= opts[1][0] ? opts[0] : opts[1];
+    return o[0] <= 0.22 * o[2] ? o[1] : null;
+  };
+  const DIR = { ports: [0, 1], W: [0, 1], H: [1, 0], up: [1, 0], down: [1, 0] }, used = new Set();
+  for (const [k, v] of num) {
+    const own = s.dimLines && s.dimLines[k];
+    if (own) { out.push({ k, v, a: own[0], b: own[1], dir: own[2] === false ? null : Array.isArray(own[2]) ? own[2] : side(own[0], own[1]) }); continue; }
+    // a spot already taken by another dimension of the same size is skipped (TDC46M 3/4": A and C are both 61)
+    let c = cand.find(q => !used.has(q) && Math.abs(q[1] - v) <= Math.max(0.8, 0.01 * v));
+    if (!c) { let best = null; for (const q of chords) { const e = Math.abs(q[1] - v); if (!used.has(q) && e <= Math.max(0.5, 0.006 * v) && (!best || e < best[0])) best = [e, q]; } c = best && best[1]; }
+    if (c) { used.add(c); out.push({ k, v, a: c[2], b: c[3], dir: DIR[c[0]] || side(c[2], c[3]) }); }
+  }
+  return (s._spots = out);
+}
+const dimShort = k => k.split(" (")[0];
+// the TI dimensions of the selected products, as dimension items in drawing coordinates (overlay, or to add for real)
+function tiDimItems(items, forReal) {
+  const res = [];
+  for (const it of items) {
+    if (it.type !== "sym" || !valid(it)) continue;
+    const s = symOf(it), T = symXform(it), bx = symBox(it), sz = Math.max(bx[2] - bx[0], bx[3] - bx[1]);
+    const fs = Math.max(sz * 0.035, 4, forReal ? 0 : 12 / ui.view.s), step = fs * 2.3, sides = {};
+    for (const sp of dimSpots(s)) {
+      const a = T(sp.a), b = T(sp.b), L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 0.5) continue;
+      const u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], n = [-u[1], u[0]];
+      let off = 0;
+      if (sp.dir) {                                         // outside the product on that side, stacked
+        const q0 = T([sp.a[0] + sp.dir[0], sp.a[1] + sp.dir[1]]), dw = [q0[0] - a[0], q0[1] - a[1]];
+        const sg = dw[0] * n[0] + dw[1] * n[1] >= 0 ? 1 : -1, nn = [n[0] * sg, n[1] * sg];
+        const pr = [[bx[0], bx[1]], [bx[2], bx[1]], [bx[0], bx[3]], [bx[2], bx[3]]].map(q => (q[0] - a[0]) * nn[0] + (q[1] - a[1]) * nn[1]);
+        const key = `${Math.round(nn[0] * 2)},${Math.round(nn[1] * 2)}`; sides[key] = (sides[key] || 0) + 1;
+        off = sg * (Math.max(...pr) + step * sides[key]);
+      }
+      const lab = `${dimShort(sp.k)} = ${fmtLen(sp.v, "in", 0.0625)}`;
+      res.push({ type: "dim", a: [Math.round(a[0] * 100) / 100, Math.round(a[1] * 100) / 100], b: [Math.round(b[0] * 100) / 100, Math.round(b[1] * 100) / 100],
+        mode: "aligned", off: Math.round(off * 100) / 100, size: Math.round(fs * 10) / 10, label: lab, tag: dimShort(sp.k), src: it.id });
+    }
+  }
+  return res;
+}
+function dimOverlay() {
+  if (!ui.tiDims) return "";
+  const items = selItems().filter(i => i.type === "sym");
+  return items.length ? `<g pointer-events="none">${tiDimItems(items).map((d, i) => dimSvg(Object.assign({ id: "ti" + i, color: "#c2410c", halo: true }, d))).join("")}</g>` : "";
+}
 // Spirax Sarco logo on a product: always upright and never mirrored, placed from the product's outline box.
 function logoPlace(it, b) {
   if (!LOGO || !it.logo) return null;
@@ -610,7 +718,7 @@ function draw() {
   let o = `<defs><pattern id="gm" width="${minor}" height="${minor}" patternUnits="userSpaceOnUse"><path d="M${minor} 0H0V${minor}" fill="none" stroke="#e6ebf1" stroke-width="${px}"/></pattern>` +
     `<pattern id="gM" width="${major}" height="${major}" patternUnits="userSpaceOnUse"><path d="M${major} 0H0V${major}" fill="none" stroke="#cdd6e0" stroke-width="${px}"/></pattern></defs>` +
     `<rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="#ffffff"/><rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="url(#gm)"/><rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="url(#gM)"/>`;
-  o += renderAll();
+  o += renderAll() + dimOverlay();
   // connection points while routing pipe or moving things
   if (ui.tool === "pipe" || ui.tool === "dim" || ui.drag) for (const t of snapTargets(ui.drag && ui.drag.ids ? new Set(ui.drag.ids) : ui.drag && ui.drag.id)) o += `<circle cx="${t[0]}" cy="${t[1]}" r="${4 * px}" fill="#fff" stroke="#1f5fae" stroke-width="${1.5 * px}" pointer-events="none"/>`;
   const sel = selected(), many = selItems();
@@ -833,8 +941,16 @@ function panel() {
     const s = p.eq ? eqSym(p.id, editing ? sel.prm || {} : ui.pick.prms[p.id], tgt.variant) : lookup(`${tgt.product}|${tgt.size}|${tgt.variant}`);
     $("symArrow").checked = !!tgt.arrow; $("symArrowWrap").hidden = !(s && s.arrow);
     $("symArrow").onchange = e => set("arrow", e.target.checked);
-    const inch = mm => (mm / 25.4).toFixed(mm / 25.4 >= 10 ? 1 : 2) + '"';
-    $("dims").innerHTML = s ? `<tr><th>${p.fit || p.eq ? "Dimension" : "TI dim"}</th><th>in</th><th>mm</th></tr>` + Object.keys(s.dims).map(k => `<tr><td>${k}</td><td>${inch(s.dims[k])}</td><td>${s.dims[k]}</td></tr>`).join("") : "";
+    // TI dimensions in inches (to 1/16"); with "Show TI dimensions" on, each row says whether it is drawn on the product
+    const inch = mm => typeof mm === "number" ? fmtLen(mm, "in", 0.0625) : esc(mm);
+    const spots = s && ui.tiDims ? new Set(dimSpots(s).map(q => q.k)) : null;
+    $("dims").innerHTML = s ? `<tr><th>${p.fit || p.eq ? "Dimension" : "TI dim"}</th><th>in</th>${spots ? "<th>On drawing</th>" : ""}</tr>` +
+      Object.keys(s.dims).map(k => `<tr${spots && !spots.has(k) ? ' class="nodim"' : ""}><td>${esc(k)}</td><td>${inch(s.dims[k])}</td>` +
+        (spots ? `<td>${spots.has(k) ? "shown" : "not located"}</td>` : "") + `</tr>`).join("") : "";
+    $("tiDims").checked = !!ui.tiDims;
+    const nSel = selItems().filter(i => i.type === "sym").length;
+    $("tiDimsHint").hidden = !ui.tiDims || nSel > 0;
+    $("tiDimsAdd").hidden = !ui.tiDims || !nSel;
     // product notes (p.note) are tracing records for the next session and are not shown (Mason, 2026-11-16)
   }
 
@@ -1708,6 +1824,14 @@ $("bIn").addEventListener("click", () => zoom(1.25)); $("bOut").addEventListener
 $("shade").addEventListener("change", e => { doc.style.shade = e.target.checked; commit(); });
 $("blackLines").addEventListener("change", e => { doc.style.blackLines = e.target.checked; commit(); });
 window.addEventListener("resize", draw);
+// TI dimensions shown on the selected product(s): on / off, remembered in this browser
+try { ui.tiDims = localStorage.getItem("sdg-tidims") === "1"; } catch (e) {}
+$("tiDims").addEventListener("change", e => { ui.tiDims = e.target.checked; try { localStorage.setItem("sdg-tidims", ui.tiDims ? "1" : "0"); } catch (err) {} refresh(); });
+$("tiDimsAdd").addEventListener("click", () => {
+  const add = tiDimItems(selItems(), true).map(d => ({ id: nextId++, type: "dim", a: d.a, b: d.b, mode: d.mode, off: d.off, color: ui.dim.color, size: d.size, tag: d.tag }));
+  if (!add.length) { say("No TI dimensions could be located on the selection.", "warn"); return; }
+  doc.items.push(...add); commit(); say(`Added ${add.length} dimension line${add.length > 1 ? "s" : ""}. They are ordinary dimensions: drag to adjust, they export with the drawing.`, "ok");
+});
 // side panel on / off (more room for the board on a small screen); remembered in this browser
 function setSide(show) {
   document.querySelector(".cols").classList.toggle("noside", !show);

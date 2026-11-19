@@ -18,13 +18,22 @@ const ELBOW = { '1/2"': 38, '3/4"': 29, '1"': 38, '1-1/4"': 48, '1-1/2"': 57, '2
 const TEE = { '1/2"': 25, '3/4"': 29, '1"': 38, '1-1/4"': 48, '1-1/2"': 57, '2"': 64, '2-1/2"': 76, '3"': 86, '4"': 105, '5"': 124, '6"': 143, '8"': 178, '10"': 216, '12"': 254, '14"': 279, '16"': 305, '18"': 343, '20"': 381, '24"': 432 };
 const REDH = { '3/4"': 38, '1"': 51, '1-1/4"': 51, '1-1/2"': 64, '2"': 76, '2-1/2"': 89, '3"': 89, '4"': 102, '5"': 127, '6"': 140, '8"': 152, '10"': 178, '12"': 203, '14"': 330, '16"': 356, '18"': 381, '20"': 508, '24"': 508 };
 const FSIZES = Object.keys(ELBOW);
+// ASME B16.11 Class 3000 forged threaded fittings, mm: 90 elbow / tee centre to end A, 45 elbow centre to end C, band OD H.
+// Pipe turns on threaded pipe are drawn as these elbows (the fitting is bigger than the pipe: female thread over male).
+const THD = { '1/4"': [25, 17, 25], '3/8"': [28, 19, 33], '1/2"': [33, 25, 38], '3/4"': [38, 28, 46], '1"': [44, 33, 56], '1-1/4"': [51, 35, 62],
+  '1-1/2"': [60, 43, 75], '2"': [64, 44, 84], '2-1/2"': [83, 52, 102], '3"': [95, 64, 121], '4"': [114, 79, 152] };
+const TSIZES = Object.keys(THD);
+// a pipe's turns: threaded elbows ("thd") or welded long-radius bends ("bw"). Not set: threaded up to 2", welded above.
+const pipeJoint = it => !THD[it.nps] ? "bw" : it.joint || (TSIZES.indexOf(it.nps) <= TSIZES.indexOf('2"') ? "thd" : "bw");
 const smaller = (size, n) => FSIZES.slice(Math.max(0, FSIZES.indexOf(size) - n), FSIZES.indexOf(size));
 LIB.families.push("Fittings");
 LIB.products.push(
   { id: "ELBOW90", name: "90° elbow", type: "Long radius, butt weld", ti: "ASME B16.9", family: "Fittings", sizes: FSIZES, variantsFor: () => ["-"], fit: true },
   { id: "TEE", name: "Tee", type: "Straight or reducing, butt weld", ti: "ASME B16.9", family: "Fittings", sizes: FSIZES, variantsFor: s => [s, ...smaller(s, 4).reverse()], variantLabel: "Branch size", fit: true },
   { id: "REDC", name: "Concentric reducer", type: "Butt weld", ti: "ASME B16.9", family: "Fittings", sizes: FSIZES.slice(1), variantsFor: s => smaller(s, 4).reverse(), variantLabel: "Small end", fit: true },
-  { id: "REDE", name: "Eccentric reducer", type: "Butt weld, flat on bottom as placed", ti: "ASME B16.9", family: "Fittings", sizes: FSIZES.slice(1), variantsFor: s => smaller(s, 4).reverse(), variantLabel: "Small end", fit: true });
+  { id: "REDE", name: "Eccentric reducer", type: "Butt weld, flat on bottom as placed", ti: "ASME B16.9", family: "Fittings", sizes: FSIZES.slice(1), variantsFor: s => smaller(s, 4).reverse(), variantLabel: "Small end", fit: true },
+  { id: "ELBOW90T", name: "90° elbow, threaded", type: "Threaded, Class 3000 forged", ti: "ASME B16.11", family: "Fittings", sizes: TSIZES, variantsFor: () => ["-"], fit: true },
+  { id: "TEET", name: "Tee, threaded", type: "Threaded, Class 3000 forged", ti: "ASME B16.11", family: "Fittings", sizes: TSIZES, variantsFor: () => ["-"], fit: true });
 // Equipment drawn from typed dimensions (app/equipment.js): exchangers, tanks with coils, air heater coils, kettles
 const EQ = window.EQUIP || {};
 if (Object.keys(EQ).length) {
@@ -46,6 +55,19 @@ const FITS = {};
 function fitGeom(product, size, variant) {
   const od = PIPE[size][0], r = od / 2, lw = 0.5 + od * 0.008, f = v => v.toFixed(2);
   let d, ports, box, dims;
+  if (product === "ELBOW90T" || product === "TEET") {               // origin at the centre; ports at the thread ends
+    const [A, , H] = THD[size], h = H / 2;
+    if (product === "ELBOW90T") {
+      d = `M${f(-A)},${f(-h)}L0,${f(-h)}A${f(h)},${f(h)} 0 0 1 ${f(h)},0L${f(h)},${f(A)}L${f(-h)},${f(A)}L${f(-h)},${f(h)}L${f(-A)},${f(h)}Z`;
+      ports = [[-A, 0], [0, A]]; box = [-A, -h, A + h, A + h];
+    } else {
+      d = `M${f(-A)},${f(-h)}L${f(A)},${f(-h)}L${f(A)},${f(h)}L${f(h)},${f(h)}L${f(h)},${f(A)}L${f(-h)},${f(A)}L${f(-h)},${f(h)}L${f(-A)},${f(h)}Z`;
+      ports = [[-A, 0], [A, 0], [0, A]]; box = [-A, -h, 2 * A, h + A];
+    }
+    dims = { "Centre to end": A, "Band OD": H, "Pipe OD": od };
+    const lw2 = 0.5 + H * 0.008;
+    return { box: [box[0] - lw2 / 2, box[1] - lw2 / 2, box[2] + lw2, box[3] + lw2], fill: d, strokes: [[lw2, d]], arrow: null, ports, dims, flat: true };
+  }
   if (product === "ELBOW90") {
     const R = ELBOW[size];
     d = `M${f(-R)},${f(-r)}A${f(R + r)},${f(R + r)} 0 0 1 ${f(r)},${f(R)}L${f(-r)},${f(R)}` + (R - r > 0.5 ? `A${f(R - r)},${f(R - r)} 0 0 0 ${f(-R)},${f(r)}` : `L${f(-R)},${f(r)}`) + "Z";
@@ -78,7 +100,7 @@ const MATERIALS = [["cs", "Carbon steel", "#4b535e"], ["ss", "Stainless steel", 
 const matName = k => (MATERIALS.find(m => m[0] === k) || [0, ""])[1];
 const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
-const BUILD = "15";
+const BUILD = "16";
 const LOGO = window.SDG_LOGO || null;                       // vector Spirax Sarco logo, app/logo.js
 const STYLE0 = { shade: true, blackLines: false, units: "ftin", prec: 1 };
 const UNITS = [["ftin", "ft-in"], ["in", "in"], ["mm", "mm"]];
@@ -221,7 +243,7 @@ function bboxOf(it) {
   }
   if (it.type === "dim") return dimBox(it);
   if (it.type === "pipe") {
-    const r = PIPE[it.nps][0] / 2 + 1;
+    const r = (pipeJoint(it) === "thd" ? THD[it.nps][2] : PIPE[it.nps][0]) / 2 + 1;
     return [Math.min(...it.pts.map(p => p[0])) - r, Math.min(...it.pts.map(p => p[1])) - r, Math.max(...it.pts.map(p => p[0])) + r, Math.max(...it.pts.map(p => p[1])) + r];
   }
   if (it.type === "text") {
@@ -244,8 +266,9 @@ function docBox(margin) {
   return o;
 }
 const valid = it => it.type !== "sym" || !!symOf(it);
-function pipePath(pts, nps) {
+function pipePath(pts, nps, joint) {
   if (pts.length < 2) return "";
+  if (joint === "thd") return "M" + pts.map(p => `${p[0].toFixed(2)},${p[1].toFixed(2)}`).join("L");   // the elbows cover the corners
   const R = ELBOW[nps] || 1.5 * NOM(nps);         // long-radius elbow, centreline
   let d = `M${pts[0][0].toFixed(2)},${pts[0][1].toFixed(2)}`;
   for (let i = 1; i < pts.length; i++) {
@@ -295,10 +318,41 @@ function itemSvg(it) {
 }
 function pipeOutline(it) {
   const od = PIPE[it.nps][0], p = pal(it.color);
-  return `<path data-id="${it.id}" d="${pipePath(it.pts, it.nps)}" fill="none" stroke="${p.line}" stroke-width="${od}" stroke-linejoin="round"/>`;
+  return `<path data-id="${it.id}" d="${pipePath(it.pts, it.nps, pipeJoint(it))}" fill="none" stroke="${p.line}" stroke-width="${od}" stroke-linejoin="round"/>`;
+}
+// Threaded elbows at the turns of a threaded pipe: centre to end and band OD from ASME B16.11 Class 3000 (45° turns use the
+// 45° elbow). Each is two legs and a round back, drawn as one outline (line-colour pass, then fill pass).
+function pipeTurns(it) {
+  const out = [];
+  if (pipeJoint(it) !== "thd") return out;
+  const [A90, A45, H] = THD[it.nps], P = it.pts;
+  for (let i = 1; i < P.length - 1; i++) {
+    const a = P[i - 1], p = P[i], q = P[i + 1], l1 = Math.hypot(p[0] - a[0], p[1] - a[1]), l2 = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    if (!l1 || !l2) continue;
+    const u1 = [(a[0] - p[0]) / l1, (a[1] - p[1]) / l1], u2 = [(q[0] - p[0]) / l2, (q[1] - p[1]) / l2];
+    const phi = Math.PI - Math.acos(Math.max(-1, Math.min(1, u1[0] * u2[0] + u1[1] * u2[1])));   // the turn
+    if (phi < 0.02 || phi > 3.1) continue;
+    const A = Math.abs(phi - Math.PI / 4) < 0.05 ? A45 : A90;
+    out.push({ p, legs: [[u1, Math.min(A, l1)], [u2, Math.min(A, l2)]], h: H / 2, n: Math.abs(phi - Math.PI / 2) < 0.05 ? 90 : Math.abs(phi - Math.PI / 4) < 0.05 ? 45 : 0 });
+  }
+  return out;
+}
+function pipeFit(it, pass) {
+  const T = pipeTurns(it); if (!T.length) return "";
+  const p = pal(it.color), lw = 0.5 + T[0].h * 2 * 0.008, f = v => v.toFixed(2);
+  let d = "";
+  for (const t of T) {
+    for (const [u, L] of t.legs) {
+      const n = [-u[1] * t.h, u[0] * t.h], e = [t.p[0] + u[0] * L, t.p[1] + u[1] * L];
+      d += `M${f(t.p[0] + n[0])},${f(t.p[1] + n[1])}L${f(e[0] + n[0])},${f(e[1] + n[1])}L${f(e[0] - n[0])},${f(e[1] - n[1])}L${f(t.p[0] - n[0])},${f(t.p[1] - n[1])}Z`;
+    }
+    d += `M${f(t.p[0] - t.h)},${f(t.p[1])}a${f(t.h)},${f(t.h)} 0 1 0 ${f(2 * t.h)},0a${f(t.h)},${f(t.h)} 0 1 0 ${f(-2 * t.h)},0Z`;
+  }
+  return pass === 0 ? `<path data-id="${it.id}" d="${d}" fill="${p.line}" stroke="${p.line}" stroke-width="${f(2 * lw)}" stroke-linejoin="round" fill-rule="nonzero"/>`
+    : `<path data-id="${it.id}" d="${d}" fill="${p.mid}" fill-rule="nonzero"/>`;
 }
 function pipeBody(it) {
-  const [od, w40, w80] = PIPE[it.nps], p = pal(it.color), lw = 0.5 + od * 0.008, d = pipePath(it.pts, it.nps);
+  const [od, w40, w80] = PIPE[it.nps], p = pal(it.color), lw = 0.5 + od * 0.008, d = pipePath(it.pts, it.nps, pipeJoint(it));
   let o = `<path data-id="${it.id}" d="${d}" fill="none" stroke="${p.mid}" stroke-width="${od - 2 * lw}" stroke-linejoin="round"/>`;
   if (it.cut) o += `<path data-id="${it.id}" d="${d}" fill="none" stroke="${p.bore}" stroke-width="${od - 2 * (it.sch === 80 ? w80 : w40)}" stroke-linejoin="round"/>`;
   return o;
@@ -332,7 +386,8 @@ function behindIds(items) {
 const backFirst = items => { const b = behindIds(items); return b.size ? [...items.filter(i => b.has(i.id)), ...items.filter(i => !b.has(i.id))] : items; };
 function renderAll() {
   const live = doc.items.filter(valid), pipes = live.filter(i => i.type === "pipe"), rest = backFirst(live.filter(i => i.type !== "pipe"));
-  return pipes.map(pipeOutline).join("") + pipes.map(pipeBody).join("") + rest.map(itemSvg).join("") + pipes.map(pipeLabel).join("") + renderSheet();
+  return pipes.map(pipeOutline).join("") + pipes.map(pipeBody).join("") + pipes.map(it => pipeFit(it, 0)).join("") + pipes.map(it => pipeFit(it, 1)).join("") +
+    rest.map(itemSvg).join("") + pipes.map(pipeLabel).join("") + renderSheet();
 }
 const ordered = () => [...doc.items.filter(i => i.type === "pipe"), ...backFirst(doc.items.filter(i => i.type !== "pipe"))].filter(valid);
 
@@ -590,7 +645,7 @@ function draw() {
     const pts = ui.cursor ? [...ui.draft.pts, ui.cursor] : ui.draft.pts;
     if (ui.tool === "pipe" && pts.length > 1) {
       const od = PIPE[ui.pipe.nps][0];
-      o += `<path d="${pipePath(pts, ui.pipe.nps)}" fill="none" stroke="${ui.pipe.color}" stroke-opacity="0.55" stroke-width="${od}" stroke-linejoin="round" pointer-events="none"/>`;
+      o += `<path d="${pipePath(pts, ui.pipe.nps, pipeJoint(ui.pipe))}" fill="none" stroke="${ui.pipe.color}" stroke-opacity="0.55" stroke-width="${od}" stroke-linejoin="round" pointer-events="none"/>`;
     }
     if (ui.tool === "arrow" && pts.length > 1) o += `<line x1="${pts[0][0]}" y1="${pts[0][1]}" x2="${pts[1][0]}" y2="${pts[1][1]}" stroke="#1f5fae" stroke-width="${1.5 * px}" pointer-events="none"/>`;
     if (ui.tool === "dim") {
@@ -741,11 +796,12 @@ function panel() {
         const put = (k, v) => { prm[k] = v; if (editing) commit(); else panel(); };
         for (const fd of E.fields) {
           if ((fd.k === "S" && tgt.variant !== "on saddles") || (fd.k === "Lg" && tgt.variant !== "on legs")) continue;
+          if (fd.show && !fd.show(Object.assign({}, E.defaults, prm), tgt.variant)) continue;      // e.g. one size box per nozzle
           const r = document.createElement("div"); r.className = "row eq"; const id = "eq_" + fd.k;
           r.innerHTML = `<label for="${id}"></label>`; r.querySelector("label").textContent = fd.label;
           let inp;
           if (fd.t === "nps") { inp = document.createElement("select"); fd.opts.forEach(o => { const op = document.createElement("option"); op.value = op.textContent = o; inp.appendChild(op); }); inp.value = val(fd.k);
-            inp.addEventListener("change", () => put(fd.k, inp.value)); }
+            inp.addEventListener("change", () => { inp.blur(); put(fd.k, inp.value); }); }
           else {
             inp = document.createElement("input"); inp.type = "text"; inp.autocomplete = "off";
             inp.value = fd.t === "num" ? val(fd.k) : fmtLen(val(fd.k), null, 0.0625);
@@ -788,6 +844,7 @@ function panel() {
   if (!$("nps").options.length) Object.keys(PIPE).forEach(k => { const o = document.createElement("option"); o.value = k; o.textContent = k; $("nps").appendChild(o); });
   $("nps").value = pt.nps; $("sch").value = String(pt.sch); $("pipeLabel").checked = !!pt.label; $("pipeCut").checked = !!pt.cut;
   $("nps").onchange = e => pset("nps", e.target.value); $("sch").onchange = e => pset("sch", +e.target.value);
+  chipRow($("pipeJoint"), THD[pt.nps] ? ["thd", "bw"] : ["bw"], pipeJoint(pt), v => pset("joint", v), v => v === "thd" ? "Threaded elbows" : "Welded bends");
   $("pipeLabel").onchange = e => pset("label", e.target.checked); $("pipeCut").onchange = e => pset("cut", e.target.checked);
   $("pipeLen").checked = !!pt.len; $("pipeLen").onchange = e => pset("len", e.target.checked);
   chipRow($("pipeMat"), ["", ...MATERIALS.map(m => m[0])], pt.mat || "", v => { pt.mat = v; if (v) pt.color = MATERIALS.find(m => m[0] === v)[2]; if (pe) commit(); else refresh(); },
@@ -1434,7 +1491,15 @@ function bomRows() {
     if (it.type === "pipe" && sh.pipe) {
       const k = `${it.nps}|${it.sch}|${it.mat || ""}`, L = it.pts.slice(1).reduce((n, p, j) => n + Math.hypot(p[0] - it.pts[j][0], p[1] - it.pts[j][1]), 0);
       const r = pipes.get(k) || { kind: "pipe", name: "Pipe", desc: `Schedule ${it.sch}`, size: it.nps, conn: "", mat: matName(it.mat), ti: "", len: 0, ord: [NPS.indexOf(it.nps), it.sch, matName(it.mat)] };
-      r.len += L; pipes.set(k, r); continue;
+      r.len += L; pipes.set(k, r);
+      for (const t of pipeTurns(it)) {                     // threaded elbows at the pipe's turns are parts too
+        const nm = t.n === 45 ? "45° elbow, threaded" : "90° elbow, threaded";
+        const ke = t.n === 45 ? `ELB45T|${it.nps}|-|${it.mat || ""}` : `ELBOW90T|${it.nps}|-|${it.mat || ""}`;   // same key as a placed 90° elbow, so they add up
+        const re = prods.get(ke) || { kind: "prod", name: nm, desc: "Threaded, Class 3000 forged", size: it.nps, conn: "", mat: matName(it.mat), ti: "ASME B16.11",
+          qty: 0, ids: [], ord: [fam.indexOf("Fittings"), nm, TSIZES.indexOf(it.nps), "-", matName(it.mat)] };
+        re.qty++; prods.set(ke, re);
+      }
+      continue;
     }
     if (it.type !== "sym" || !valid(it)) continue;
     const q = LIB.products.find(p => p.id === it.product); if (!q) continue;
@@ -1622,6 +1687,7 @@ $("keysClose").addEventListener("click", () => $("keysDlg").close());
 [["tPipe", "pipe"], ["tText", "text"], ["tArrow", "arrow"], ["tDim", "dim"]].forEach(([id, t]) => $(id).addEventListener("click", () => setTool(t)));
 // Fittings sit in the toolbar beside Pipe (Mason, 2026-11-18): the button opens the fittings picker; Select goes back to the products
 function pickFamily(v) {
+  if (document.querySelector(".cols").classList.contains("noside")) setSide(true);   // the picker is in the panel
   const grey = f => f === "Fittings" || f === "Equipment";             // fittings and equipment start out pipe grey
   if (grey(v) && !grey(ui.pick.family)) { ui.pick.prevColor = ui.pick.color; ui.pick.prevMat = ui.pick.mat; ui.pick.color = ui.pipe.color; ui.pick.mat = ui.pipe.mat || ""; }
   if (!grey(v) && grey(ui.pick.family) && ui.pick.prevColor) { ui.pick.color = ui.pick.prevColor; ui.pick.mat = ui.pick.prevMat || ""; }
@@ -1642,6 +1708,15 @@ $("bIn").addEventListener("click", () => zoom(1.25)); $("bOut").addEventListener
 $("shade").addEventListener("change", e => { doc.style.shade = e.target.checked; commit(); });
 $("blackLines").addEventListener("change", e => { doc.style.blackLines = e.target.checked; commit(); });
 window.addEventListener("resize", draw);
+// side panel on / off (more room for the board on a small screen); remembered in this browser
+function setSide(show) {
+  document.querySelector(".cols").classList.toggle("noside", !show);
+  $("bSide").textContent = show ? "Hide panel" : "Show panel"; $("bSide").setAttribute("aria-pressed", String(!show));
+  try { localStorage.setItem("sdg-side", show ? "1" : "0"); } catch (e) {}
+  draw();
+}
+$("bSide").addEventListener("click", () => setSide(document.querySelector(".cols").classList.contains("noside")));
+try { if (localStorage.getItem("sdg-side") === "0") setSide(false); } catch (e) {}
 
 function exampleDoc() {
   // a small drip-leg style run so the sheet does not open empty

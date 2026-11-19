@@ -61,6 +61,7 @@
           <label for="nps">Size</label><select id="nps"></select>
           <label for="sch">Schedule</label><select id="sch"><option value="40">40</option><option value="80">80</option></select>
         </div>
+        <div class="row"><label>Turns</label><div class="chips" id="pipeJoint"></div></div>
         <div class="meta" id="pipeMeta"></div>
         <div id="runNext">
           <div class="row"><label for="runLen">Next run length</label><input type="text" id="runLen" inputmode="decimal" autocomplete="off" placeholder="e.g. 24 or 2'-6&quot;"></div>
@@ -130,6 +131,8 @@
 
     <main class="panel stage">
       <div class="toolbar" role="toolbar" aria-label="Drawing tools">
+        <button class="tool" id="bSide" type="button" title="Hide or show the side panel for a bigger drawing board">Hide panel</button>
+        <span class="sep"></span>
         <button class="tool" id="tSelect" type="button">Select</button>
         <button class="tool" id="tPipe" type="button">Pipe</button>
         <button class="tool" id="tFit" type="button" title="Elbows, tees and reducers">Fittings</button>

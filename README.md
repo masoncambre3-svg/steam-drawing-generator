@@ -51,11 +51,18 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
   A selected pipe lists every run's length; change one and the rest of the pipe moves with it.
 - Grouping: Shift+click or Shift+drag a box to select several items, then Group (Ctrl+G). A group moves, copies,
   rotates and deletes as one. Alt+click edits one item inside a group. Ctrl+A selects everything.
-- Equipment (app/equipment.js): U-tube exchanger, open tank with helical coil, air heater coil, jacketed kettle.
+- Equipment (app/equipment.js): U-tube exchanger, open tank with helical coil, air heater coil, jacketed kettle, reservoir
+  (pressure powered pump packages: horizontal or vertical, 0-6 top and 0-6 bottom outlets each with its own size, vent out
+  of the top or the bottom, threaded or flanged nozzles).
   Not traced: each is drawn from the sizes you type in the panel (nozzle sizes picked from a list), so it matches
   the real unit. Select one and drag the blue diamonds to stretch it. Hidden parts (tube bundle, coil in the tank,
   vessel wall inside the jacket) are dashed. Every nozzle is a connection point. To add another piece of equipment,
   add a builder and an entry to EQUIP in that file; app.js picks it up.
+- Pipe turns: "Threaded elbows" (ASME B16.11 Class 3000 forged elbows drawn at each turn, bigger than the pipe, and
+  counted in the bill of materials) or "Welded bends" (long-radius bends). Pipes that have never been set use threaded up
+  to 2" and welded above; threaded goes up to 4". Threaded 90° elbows and tees are also in Fittings.
+- Page size: on a computer the page fills the window and the board takes what is left; smaller or shorter screens get a
+  compact layout, and "Hide panel" (toolbar) gives the board the full width.
 - Pipe stays connected: a pipe end sitting on a product connection follows the product when it is moved, rotated,
   mirrored, resized or stretched. The run next to the product keeps its direction and the turn before it slides.
   A pipe you move or edit yourself is left where you put it. Changing a run length moves a product on the far end.
@@ -89,4 +96,4 @@ Pipe, elbows, tees and reducers are drawn by `app/app.js` from ASME dimensions, 
 | Pumps | Pressure powered: PTF / PTF-SS (2" x 2", 3" x 2"), PTF Top Inlet (3" x 3"), PTF4 (4" x 4"), PPEC (1", 1-1/2"; iron / steel / 316 SS). Automatic pump traps: APT10, APT14 (screwed, PN16, ASME 150, JIS/KS 10), APT14HC, APT14SHC |
 | Separators | S5, S6 (1/2" to 2"), S4A (1/2" to 2" screwed/SW), S4A flanged (2-1/2" to 18") |
 | Manifolds | MSC condensate collection, MSD steam distribution (4, 8, 12, 16 stations, with or without stand) |
-| Fittings (built in) | 90° elbow, tee, concentric reducer, eccentric reducer |
+| Fittings (built in) | 90° elbow, tee, concentric reducer, eccentric reducer (butt weld); 90° elbow and tee, threaded (Class 3000) |

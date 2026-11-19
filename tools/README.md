@@ -441,6 +441,23 @@ previews. apptest.py also needs `playwright` and Chrome.
   - Not done: FT14V (vertical connections), FT14-C needle valve, FTC62 / FTC80 side and end views, FTC80 PN100 (no
     dimensions on the US sheet), BDV2 outlet and drain as ports.
 
+- App changes, 2026-11-19 (Mason asked: threaded fittings at pipe turns, a reservoir, a page that fits small screens):
+  - `THD` (app.js): ASME B16.11 Class 3000 threaded fittings, A (90 / tee), C (45), band OD H, 1/4" to 4" (checked against
+    wermac.org). A pipe's `joint` is "thd" or "bw"; `pipeJoint()` defaults to threaded up to 2" when unset. Threaded pipes are
+    drawn with sharp corners (`pipePath(..., "thd")`) and `pipeTurns` / `pipeFit` draw an elbow at each turn (two legs + round
+    back, line pass then fill pass so the union has one outline). 45° turns use C. bomRows counts them; a 90° turn uses the
+    same key as a placed ELBOW90T so the two add up. New products ELBOW90T and TEET in Fittings.
+  - RESERVOIR in equipment.js: fields can carry `show(prm, variant)`; app.js skips hidden ones (one size box per nozzle, up to
+    6 top / 6 bottom). Selects blur on change so the field list rebuilds. Vertical = the horizontal drawing turned; nozzles on a
+    head get extra stub so their faces sit in one plane. Bottom vent has a dashed internal riser (assumed; ask Mason if he
+    meant something else). Flanged nozzles can overlap on a small head; that is the sizes entered.
+  - Layout (app.css, end of file): over 900 px wide the page is the window's height (`.wrap` 100dvh, grid row minmax(0,1fr),
+    `.board` flex 1), no max width. Compact mode under 1440 px wide or 860 px tall; under 720 px tall the header and hints are
+    hidden. "Hide panel" (`setSide`, remembered as sdg-side) hides #side; picking a family brings it back.
+  - Tested in playwright at 1280x720, 1536x864, 2560x1440: page height = window height, no page scroll, board 552 / 652 / 1266
+    px tall. apptest "Steam traps" 149, no errors. apptest "Equipment" reports "items without geometry" for every equipment
+    item: its check uses lookup(), which does not build equipment; they draw (symOf).
+
 ## Conventions the app relies on
 
 - Symbol key: `ID|size|variant`, sizes written like `3/4"` and `1-1/2"`.

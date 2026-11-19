@@ -141,8 +141,73 @@
       [steam, cond, drain], [{ k: "D", p: [Rj, Hs], u: [1, 0], f: 2 }, { k: "Hs", p: [0, Hs + Rj], u: [0, 1], f: 1 }]);
   }
 
+  // ------------------------------------------------------------ reservoir (receiver) for a pressure powered pump package
+  // Pipe-body vessel with 2:1 elliptical heads. Origin: left (or bottom) tangent line, on the centreline. Nozzles on top and
+  // bottom are spaced evenly along the shell (horizontal) or across the head (vertical); the vent can leave the top or the
+  // bottom. A bottom vent has a dashed internal riser up into the vapour space. Nozzles are flanged stubs or threaded
+  // half couplings (ASME B16.11 Class 3000 band OD, from app.js THD).
+  function thdNoz(b, x, y, u, nps, len) {
+    const o = od(nps), T = (typeof THD !== "undefined" && THD[nps]) || [1.0 * o, 0, 1.45 * o], H = T[2], n = [-u[1], u[0]];
+    len = len || Math.max(30, 0.85 * T[0]);
+    const P = (a, w) => [x + u[0] * a + n[0] * w, y + u[1] * a + n[1] * w];
+    b.shapes.push([P(-2, -H / 2), P(len, -H / 2), P(len, H / 2), P(-2, H / 2)]);
+    b.thin.push([P(len * 0.62, -H / 2), P(len * 0.62, H / 2)]);                       // thread run-out line
+    const e = P(len, 0);
+    return [r2(e[0]), r2(e[1]), Math.round(Math.atan2(u[1], u[0]) * 180 / PI)];
+  }
+  function reservoir(p, variant) {
+    const b = Builder(), D = p.D, R = D / 2, L = p.L, h = D / 4, vert = variant === "vertical";
+    const thd = p.ends === "Threaded", N = (k, max) => clamp(Math.round(p[k] || 0), 0, max);
+    // extra: added stub length, so nozzles on a head all end in one plane
+    const T_ = nps => (typeof THD !== "undefined" && THD[nps]) || [od(nps), 0, 1.45 * od(nps)];
+    const base = nps => thd ? Math.max(30, 0.85 * T_(nps)[0]) : Math.max(60, 1.5 * od(nps));
+    const face = nps => thd ? 0 : (F150[nps] || [0, 15])[1];
+    const nozzle = (x, y, u, nps, extra = 0) => thd ? thdNoz(b, x, y, u, nps, base(nps) + extra) : noz(b, x, y, u, nps, base(nps) + extra);
+    // drawn horizontal, x along the shell; a vertical vessel is the same drawing turned (top = -x side up)
+    const V = vert ? q => [q[1], -q[0]] : q => q, Vu = vert ? u => [u[1], -u[0]] : u => u;
+    const pts = P => P.map(V);
+    b.shapes.push(pts([[0, -R], [L, -R], ...arc(L, 0, h, R, -PI / 2, PI / 2), [0, R], ...arc(0, 0, h, R, PI / 2, 1.5 * PI)]));
+    b.lines.push(pts([[0, -R], [0, R]]), pts([[L, -R], [L, R]]));                      // tangent lines
+    const top = [], bot = [];
+    for (let i = 1; i <= N("nTop", 6); i++) top.push(p["t" + i]);
+    for (let i = 1; i <= N("nBot", 6); i++) bot.push(p["b" + i]);
+    const vBot = p.vpos !== "Top";
+    (vBot ? bot : top).push("vent");
+    // positions: along the shell (horizontal) or across the head (vertical: top = right-hand head, which is up)
+    const place = n => vert ? Array.from({ length: n }, (_, i) => -R * 0.7 + (n > 1 ? 1.4 * R * i / (n - 1) : 0.7 * R))
+      : Array.from({ length: n }, (_, i) => L * (i + 0.5) / n);
+    const ports = [], dims = { "Diameter": r2(D), "Shell length": r2(L), "Overall length": r2(L + 2 * h) };
+    const side = (list, sgn) => {
+      const xs = place(list.length), sz = list.map(n => n === "vent" ? p.vent : n);
+      const reach = Math.max(...sz.map(n => base(n) + face(n)));      // vertical: every face on this head in one plane
+      list.forEach((nps, i) => {
+        const vent = nps === "vent", size = vent ? p.vent : nps;
+        let q, u, extra = 0;
+        if (vert) {                                                // on a head: y across, out along the axis
+          const yy = xs[i], hx = h * Math.sqrt(Math.max(0, 1 - (yy / R) ** 2));
+          q = sgn < 0 ? [L + hx - 2, yy] : [-hx + 2, yy]; u = sgn < 0 ? [1, 0] : [-1, 0]; extra = h - hx + reach - base(size) - face(size);
+        } else { q = [xs[i], sgn * R]; u = [0, sgn]; }
+        const pt = nozzle(...V(q), Vu(u), size, extra);
+        ports.push(pt);
+        if (vent && vBot) {                                        // internal riser into the vapour space, dashed
+          const o = od(size), top_ = vert ? L + h * 0.5 : -R * 0.7;
+          const a = vert ? [[q[0], q[1] - o / 2], [top_, q[1] - o / 2]] : [[q[0] - o / 2, R], [q[0] - o / 2, top_]];
+          const c = vert ? [[q[0], q[1] + o / 2], [top_, q[1] + o / 2]] : [[q[0] + o / 2, R], [q[0] + o / 2, top_]];
+          b.hidden.push(pts(a), pts(c));
+        }
+      });
+    };
+    side(top, -1); side(bot, 1);
+    const grips = vert ? [{ k: "L", p: V([L + h, 0]), u: [0, -1], f: 1 }, { k: "D", p: V([L / 2, R]), u: [1, 0], f: 2 }]
+      : [{ k: "L", p: [L + h, 0], u: [1, 0], f: 1 }, { k: "D", p: [L / 2, -R], u: [0, -1], f: 2 }];
+    return finish(b, dims, ports, grips);
+  }
+
   const IN = 25.4;
   const nps = ['1/2"', '3/4"', '1"', '1-1/4"', '1-1/2"', '2"', '2-1/2"', '3"', '4"', '6"', '8"', '10"', '12"'];
+  const NOZ = ['1/2"', '3/4"', '1"', '1-1/4"', '1-1/2"', '2"', '2-1/2"', '3"', '4"', '6"'];
+  const nozFields = (pre, cnt, label) => Array.from({ length: 6 }, (_, i) => ({ k: pre + (i + 1), label: `${label} ${i + 1}`, t: "nps", opts: NOZ,
+    show: p => Math.round(p[cnt] || 0) > i }));
   window.EQUIP = {
     UTUBE: { name: "U-tube exchanger", type: "Shell and tube, U-tube bundle, horizontal", build: utube,
       variants: ["on saddles", "no saddles"], variantLabel: "Supports",
@@ -171,5 +236,15 @@
         { k: "J", label: "Jacket up the side", t: "len", min: 100, max: 5000 }, { k: "Lg", label: "Leg clearance", t: "len", min: 50, max: 3000 },
         { k: "ns", label: "Jacket steam inlet", t: "nps", opts: nps }, { k: "nc", label: "Jacket condensate", t: "nps", opts: nps }, { k: "nd", label: "Product drain", t: "nps", opts: nps }],
       note: "Drawn from the sizes you enter. Jacket steam inlet high on the side, condensate outlet at the low point of the jacket, product drain at the bottom centre. The vessel wall inside the jacket is dashed. Jacket height is measured up the straight side from the bottom tangent line. Connections: steam in, condensate out, product drain. Drag the side or bottom handle to stretch it." },
+    RESERVOIR: { name: "Reservoir", type: "Reservoir (receiver) for a pressure powered pump package", build: reservoir,
+      variants: ["horizontal", "vertical"], variantLabel: "Orientation",
+      defaults: { D: 12.75 * IN, L: 36 * IN, nTop: 2, t1: '2"', t2: '1-1/2"', t3: '1"', t4: '1"', t5: '1"', t6: '1"',
+        nBot: 1, b1: '2"', b2: '1"', b3: '1"', b4: '1"', b5: '1"', b6: '1"', vent: '1-1/2"', vpos: "Bottom", ends: "Threaded" },
+      fields: [{ k: "D", label: "Diameter", t: "len", min: 100, max: 3000 }, { k: "L", label: "Shell length", t: "len", min: 150, max: 10000 },
+        { k: "ends", label: "Nozzle ends", t: "nps", opts: ["Threaded", "Flanged"] },
+        { k: "nTop", label: "Top outlets", t: "num", min: 0, max: 6 }, ...nozFields("t", "nTop", "Top"),
+        { k: "nBot", label: "Bottom outlets", t: "num", min: 0, max: 6 }, ...nozFields("b", "nBot", "Bottom"),
+        { k: "vent", label: "Vent size", t: "nps", opts: NOZ }, { k: "vpos", label: "Vent leaves", t: "nps", opts: ["Bottom", "Top"] }],
+      note: "Drawn from the sizes you enter. Pipe-body vessel with 2:1 elliptical heads. Top and bottom outlets are spaced evenly; the vent is one more connection on the side you pick. A vent leaving the bottom has a dashed riser inside up into the vapour space. Threaded nozzles are Class 3000 half couplings; flanged are Class 150 stubs. Connections: top outlets, then bottom outlets, vent on its side. Vertical: top outlets on the upper head. Drag the end or side handle to stretch it." },
   };
 })();

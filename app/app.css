@@ -135,3 +135,41 @@ table.bom td.empty { color: var(--muted); text-align: center; padding: 18px; }
 .dlg-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px; border-top: 1px solid var(--line); }
 .dlg-foot .grow { flex: 1; }
 #bomDlg > .hint { padding: 0 16px 14px; }
+
+/* ---- Fit the window (2026-11-19). On a computer the page is exactly the window's height: the drawing board takes
+   whatever the header, toolbar and button row leave, and the side panel scrolls inside itself. No width cap, so a big
+   monitor gets a big board. Narrow or short screens (laptops) get a compact mode; "Hide panel" gives the board the
+   full width. Phones and narrow windows (under 900 px) keep the stacked layout. */
+@media (min-width: 901px) {
+  html, body { height: 100%; }
+  body { overflow: hidden; }
+  .wrap { max-width: none; height: 100vh; height: 100dvh; padding-block: 12px; }
+  .cols { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(0, clamp(260px, 21vw, 360px)) minmax(0, 1fr); }
+  .cols.noside { grid-template-columns: minmax(0, 1fr); }
+  .cols.noside #side { display: none; }
+  .stage { min-height: 0; }
+  .board { flex: 1 1 auto; height: auto; min-height: 220px; }
+}
+@media (min-width: 901px) and (max-height: 860px), (min-width: 901px) and (max-width: 1440px) {
+  body { font-size: 13px; }
+  .wrap { padding-block: 8px; gap: 8px; padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); }
+  h1 { font-size: 17px; }
+  header p { font-size: 12px; }
+  .cols { gap: 8px; }
+  .group { padding: 9px 11px; gap: 7px; }
+  .products { gap: 5px; }
+  .prod svg { height: 36px; }
+  .prod span { font-size: 11px; }
+  .chip { padding: 4px 8px; font-size: 12px; }
+  .sw { width: 22px; height: 22px; }
+  .toolbar { padding: 5px 7px; gap: 4px; }
+  .tool { padding: 4px 8px; font-size: 12.5px; }
+  .actions { padding: 6px 8px; gap: 5px; }
+  .btn { padding: 5px 9px; font-size: 12.5px; }
+  .hint, .meta, .row > label, .check { font-size: 12px; }
+}
+@media (min-width: 901px) and (max-height: 720px) {
+  header { display: none; }
+  .hint { display: none; }
+}

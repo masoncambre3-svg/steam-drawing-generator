@@ -510,3 +510,18 @@ previews. apptest.py also needs `playwright` and Chrome.
   from the pack metadata, so give new packs a clear `type`). `sheetGeom()` lays it out from the drawing size and
   `renderSheet()` draws it as part of `renderAll()`, so exports include it. `docBox()` includes the frame;
   `rawBox()` is the drawing alone. Pipe bends from the pipe tool are not items and are not counted.
+- Shapes (2026-11-20, `app/shapes.js`, loaded by loader.js before app.js): `type: "shape"` items. Box kinds (rect,
+  rbox, ellipse, callout, wisps = flash steam, plume, cloud, drops, water) are placed by centre `x, y` with `w, h, rot`
+  (any angle) and `flip`; a callout also has `tail` (drawing coordinates). Path kinds (line, poly) have `pts`, and
+  poly has `closed` / `smooth` (Catmull-Rom). Style: `fill` / `stroke` ("" = none), `sw`, `dash`, `op` (whole-shape
+  opacity), `z` layer: "back" (under pipes), "pipes" (over pipes, under products), "front" (over everything except
+  the title block) — see `renderAll()`. Order within a layer is doc order (Bring to front / Send to back).
+  Effects are drawn from w, h and `n` only, never random, so they look the same every redraw. Cloud, plume and a
+  filled callout draw outlines at 2x width under the fills, so overlapping pieces read as one outline.
+  Handles: `shapeSelSvg` (data-h "0"-"7" resize, "rot", "tail", or point index), `shapeDragHandle` does the maths in
+  the shape's own frame (the opposite side stays put). `ui.shape.st` remembers the style per kind for new shapes.
+  Clicking Water level or Flash steam onto a pipe fits it in that run's bore (`shapeIntoPipe` in app.js).
+  Anything that moves items must handle `pts` (pipes and path shapes) and `tail`; `shiftItem` and `rotateSet` do.
+- Background colour (2026-11-20): `doc.style.bg`, applied when the "Background" box is ticked (board and exports).
+- Missing products in groups (2026-11-20): `selectIds` drops items that can't be drawn; `hiddenMates` carries them
+  along when their group moves, ungroups or is deleted.

@@ -93,6 +93,33 @@
         <p class="hint" id="arrowHint">Click where the arrow starts, then where it points.</p>
         <div class="swatches" id="arrowColors"></div>
       </div>
+      <div class="group" id="gShape">
+        <h2 id="shapeTitle">Shapes</h2>
+        <p class="hint" id="shapeHint"></p>
+        <div class="row"><label>Shapes</label></div>
+        <div class="chips" id="spKinds"></div>
+        <div class="row"><label>Steam effects</label></div>
+        <div class="chips" id="spFx"></div>
+        <div class="row" id="spSizeRow"><label for="spW">Width</label><input type="text" id="spW" autocomplete="off"><label for="spH">Height</label><input type="text" id="spH" autocomplete="off"></div>
+        <div class="row" id="spRotRow"><label for="spRot">Turned, °</label><input type="number" id="spRot" min="-360" max="360" step="1"></div>
+        <div class="row" id="spNRow"><label for="spN" id="spNLabel">How many</label><input type="number" id="spN" min="1" max="40" step="1"></div>
+        <div class="row" id="spPathRow"><label class="check"><input type="checkbox" id="spClosed"> Closed shape</label><label class="check"><input type="checkbox" id="spSmooth"> Smooth curve</label></div>
+        <label class="check" id="spFillWrap"><input type="checkbox" id="spFillOn"> Fill</label>
+        <div class="swatches" id="spFill"></div>
+        <label class="check"><input type="checkbox" id="spLineOn"> Outline</label>
+        <div class="swatches" id="spLine"></div>
+        <div class="row"><label for="spSw">Line width, mm</label><input type="number" id="spSw" min="0.1" max="50" step="0.1"></div>
+        <div class="chips" id="spDash"></div>
+        <div class="row"><label for="spOp">Opacity</label><input type="range" id="spOp" min="10" max="100" step="5"><span class="meta" id="spOpV"></span></div>
+        <div id="spTextWrap" class="stack">
+          <textarea id="spText" placeholder="Text inside the shape (optional)"></textarea>
+          <div class="row"><label for="spTs">Text height, mm</label><input type="number" id="spTs" min="3" max="400" step="1"></div>
+          <div class="swatches" id="spTc"></div>
+        </div>
+        <div class="row"><label>Layer</label></div>
+        <div class="chips" id="spZ"></div>
+        <div class="row" id="spOrder"><button class="btn" id="spFront" type="button">Bring to front</button><button class="btn" id="spBack" type="button">Send to back</button></div>
+      </div>
       <div class="group" id="gDim">
         <h2 id="dimTitle">Dimension</h2>
         <p class="hint" id="dimHint">Click two points, then click where the dimension line goes. Points snap to product connections and pipe ends and turns.</p>
@@ -142,6 +169,7 @@
         <button class="tool" id="tText" type="button">Text</button>
         <button class="tool" id="tArrow" type="button">Arrow</button>
         <button class="tool" id="tDim" type="button">Dimension</button>
+        <button class="tool" id="tShape" type="button" title="Boxes, ovals, callouts, lines, and steam effects: flash steam, plumes, droplets, water level (S)">Shapes</button>
         <span class="sep"></span>
         <button class="tool" id="bRot" type="button">Rotate</button>
         <button class="tool" id="bFlip" type="button">Mirror</button>

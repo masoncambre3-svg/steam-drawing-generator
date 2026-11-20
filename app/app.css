@@ -175,3 +175,7 @@ table.bom td.empty { color: var(--muted); text-align: center; padding: 18px; }
 }
 #dims tr.nodim td { color: var(--muted); }
 #dims td:nth-child(3) { font-family: var(--font-body); font-size: 11.5px; }
+/* shapes panel */
+#gShape input[type="text"] { width: 84px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+#gShape input[type="range"] { flex: 1 1 120px; accent-color: var(--accent); }
+#gShape .chip[disabled] { opacity: 0.4; cursor: default; }

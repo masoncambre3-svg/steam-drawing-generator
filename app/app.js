@@ -123,7 +123,13 @@ let doc = { v: 1, style: Object.assign({}, STYLE0), sheet: SHEET0(), items: [] }
 const ui = { tool: "select", sel: null, set: [], draft: null, cursor: null, view: { cx: 0, cy: 0, s: 1.6 },
   pick: { family: "Steam traps", product: "TD52", size: '3/4"', variant: "NPT", color: "#3f86dc", arrow: true, logo: false, logoPos: "center", logoSize: "M" },
   pipe: { nps: '3/4"', sch: 80, color: "#8d99a8", mat: "", label: true, cut: false, len: false },
-  text: { text: "", size: 14, color: "#13233b" }, arrow: { color: "#13233b" }, dim: { mode: "aligned", color: "#13233b", size: 0 } };
+  text: { text: "", size: 14, color: "#13233b" }, arrow: { color: "#13233b" }, dim: { mode: "aligned", color: "#13233b", size: 0 },
+  shape: { kind: "rect", st: {} } };                         // st: the style each shape kind was last set to (app/shapes.js)
+// the style the next shape of kind k gets: its defaults, then whatever was picked for that kind since
+function shapeStyle(k) {
+  if (!ui.shape.st[k]) { const D = SHAPE_DEF[k], o = {}; SHAPE_STYLE_KEYS.forEach(q => { if (D[q] !== undefined) o[q] = D[q]; }); ui.shape.st[k] = o; }
+  return ui.shape.st[k];
+}
 
 // ---------------------------------------------------------------- lengths and dimensions
 // Lengths read to the drawing's rounding (1", 1/2" or 1/16"), or to 1 mm.
@@ -351,6 +357,7 @@ function bboxOf(it) {
     return L ? [Math.min(b[0], L.x), Math.min(b[1], L.y), Math.max(b[2], L.x + L.w), Math.max(b[3], L.y + L.h)] : b;
   }
   if (it.type === "dim") return dimBox(it);
+  if (it.type === "shape") return shapeBox(it);
   if (it.type === "pipe") {
     const r = (pipeJoint(it) === "thd" ? THD[it.nps][2] : PIPE[it.nps][0]) / 2 + 1;
     return [Math.min(...it.pts.map(p => p[0])) - r, Math.min(...it.pts.map(p => p[1])) - r, Math.max(...it.pts.map(p => p[0])) + r, Math.max(...it.pts.map(p => p[1])) + r];
@@ -413,6 +420,7 @@ function itemSvg(it) {
       symInner(s, it.color, it.arrow, it.rot, it.flip) + `</g>` + logoSvg(it);
   }
   if (it.type === "dim") return dimSvg(it);
+  if (it.type === "shape") return shapeSvg(it, noteLines);
   if (it.type === "pipe") return pipeOutline(it) + pipeBody(it) + pipeLabel(it);
   if (it.type === "text") {
     const lines = (it.text || "Text").split("\n");
@@ -493,10 +501,13 @@ function behindIds(items) {
   return out;
 }
 const backFirst = items => { const b = behindIds(items); return b.size ? [...items.filter(i => b.has(i.id)), ...items.filter(i => !b.has(i.id))] : items; };
+// Drawing order: shapes on the "back" layer, pipes, shapes "over pipes", products / text / arrows / dimensions,
+// pipe labels, shapes "in front", then the title block. Within a layer, shapes keep their order in doc.items.
 function renderAll() {
-  const live = doc.items.filter(valid), pipes = live.filter(i => i.type === "pipe"), rest = backFirst(live.filter(i => i.type !== "pipe"));
-  return pipes.map(pipeOutline).join("") + pipes.map(pipeBody).join("") + pipes.map(it => pipeFit(it, 0)).join("") + pipes.map(it => pipeFit(it, 1)).join("") +
-    rest.map(itemSvg).join("") + pipes.map(pipeLabel).join("") + renderSheet();
+  const live = doc.items.filter(valid), pipes = live.filter(i => i.type === "pipe"), rest = backFirst(live.filter(i => i.type !== "pipe" && i.type !== "shape"));
+  const sh = z => live.filter(i => i.type === "shape" && (i.z || "front") === z).map(itemSvg).join("");
+  return sh("back") + pipes.map(pipeOutline).join("") + pipes.map(pipeBody).join("") + pipes.map(it => pipeFit(it, 0)).join("") + pipes.map(it => pipeFit(it, 1)).join("") +
+    sh("pipes") + rest.map(itemSvg).join("") + pipes.map(pipeLabel).join("") + sh("front") + renderSheet();
 }
 const ordered = () => [...doc.items.filter(i => i.type === "pipe"), ...backFirst(doc.items.filter(i => i.type !== "pipe"))].filter(valid);
 
@@ -737,7 +748,8 @@ function draw() {
     if (p && p.pts[t.i + 1]) { const a = p.pts[t.i], c = p.pts[t.i + 1];
       o += `<line x1="${a[0]}" y1="${a[1]}" x2="${c[0]}" y2="${c[1]}" stroke="#1f5fae" stroke-opacity="0.3" stroke-width="${PIPE[p.nps][0] + 10 * px}" stroke-linecap="round" pointer-events="none"/>`; }
   }
-  if (sel && valid(sel)) {
+  if (sel && sel.type === "shape") o += shapeSelSvg(sel, px);
+  else if (sel && valid(sel)) {
     const b = bboxOf(sel), m = 4 * px;
     o += `<rect x="${b[0] - m}" y="${b[1] - m}" width="${b[2] - b[0] + 2 * m}" height="${b[3] - b[1] + 2 * m}" fill="none" stroke="#1f5fae" stroke-width="${1.5 * px}" stroke-dasharray="${5 * px} ${4 * px}" pointer-events="none"/>`;
     const dg = sel.type === "dim" ? dimGeom(sel) : null;
@@ -749,6 +761,11 @@ function draw() {
         o += `<path data-g="${i}" d="M${q[0]},${q[1] - 7 * px}L${q[0] + 7 * px},${q[1]}L${q[0]},${q[1] + 7 * px}L${q[0] - 7 * px},${q[1]}Z" fill="#1f5fae" stroke="#fff" stroke-width="${1.5 * px}" style="cursor:grab"/>`; });
     }
     hs.forEach((p, i) => { o += `<rect data-h="${i}" x="${p[0] - 5 * px}" y="${p[1] - 5 * px}" width="${10 * px}" height="${10 * px}" fill="#fff" stroke="#1f5fae" stroke-width="${1.5 * px}" style="cursor:move"/>`; });
+  }
+  if (ui.drag && ui.drag.kind === "shapeNew") o += `<g pointer-events="none" opacity="0.75">${shapeSvg(shapeNew(ui.shape.kind, shapeStyle(ui.shape.kind), ui.drag.start, ui.drag.cur, ui.drag.shift), noteLines)}</g>`;
+  if (ui.draft && ui.tool === "shape") {
+    const pts = ui.cursor ? [...ui.draft.pts, ui.cursor] : ui.draft.pts;
+    if (pts.length > 1) o += `<g pointer-events="none" opacity="0.75">${shapeSvg(Object.assign({ type: "shape", kind: "poly" }, shapeStyle("poly"), { pts }), noteLines)}</g>`;
   }
   if (ui.draft) {
     const pts = ui.cursor ? [...ui.draft.pts, ui.cursor] : ui.draft.pts;
@@ -772,6 +789,9 @@ function draw() {
   $("tip").textContent = ui.drag && ui.drag.inline ? "Let go to cut it into the pipe." : { select: many.length > 1 ? `${many.length} items. Drag to move them together. Ctrl+G groups, Ctrl+Shift+G ungroups.` :
       sel ? "Drag to move. Delete removes it. Shift+click adds to the selection." : "Click an item to select it. Shift+drag a box to select several. Drag the sheet to pan, scroll to zoom.",
     pipe: ui.draft ? "Aim with the mouse and type a length, then Enter. Or click. Double-click or Enter on an empty box finishes, Esc cancels." : "Click to start a pipe. It snaps to product connections (blue dots).",
+    shape: ui.shape.kind === "poly" ? (ui.draft ? "Click the next point. Double-click or Enter finishes, Esc cancels. Shift: 15° steps." : "Click the first point of the line.") :
+      ui.shape.kind === "line" ? "Drag from one end to the other. Shift: 15° steps. A click gives a 150 mm line." :
+      `Drag on the sheet to draw the ${SHAPE_NAME[ui.shape.kind].toLowerCase()}, or click for the usual size. Shift: keep it square.`,
     text: "Click where the label goes.", arrow: ui.draft ? "Click where the arrow points." : "Click where the arrow starts.",
     dim: !ui.draft ? "Click the first point. It snaps to connections and pipe ends and turns." : ui.draft.pts.length === 1 ? "Click the second point." :
       "Move to place the dimension line, then click. Esc cancels." }[ui.tool];
@@ -815,7 +835,7 @@ function commit() {
 function loadDoc(d) {
   if (!d || !Array.isArray(d.items)) throw new Error("bad file");
   const sh = Object.assign(SHEET0(), d.sheet || {}); sh.f = Object.assign(SHEET0().f, (d.sheet && d.sheet.f) || {});
-  doc = { v: 1, style: Object.assign({}, STYLE0, d.style || {}), sheet: sh, items: d.items.filter(i => i && ["sym", "pipe", "text", "arrow", "dim"].includes(i.type) && (i.type !== "pipe" || PIPE[i.nps])) };
+  doc = { v: 1, style: Object.assign({}, STYLE0, d.style || {}), sheet: sh, items: d.items.filter(i => i && ["sym", "pipe", "text", "arrow", "dim", "shape"].includes(i.type) && (i.type !== "pipe" || PIPE[i.nps])) };
   doc.items.forEach(i => { i.id = nextId++; });
   selectIds([]); ui.draft = null; takeSnap();
 }
@@ -842,6 +862,7 @@ function panel() {
   $("gText").hidden = !(kind === "text" || (!sel && ui.tool === "text"));
   $("gArrow").hidden = !(kind === "arrow" || (!sel && ui.tool === "arrow"));
   $("gDim").hidden = !(kind === "dim" || (!sel && ui.tool === "dim"));
+  $("gShape").hidden = !(kind === "shape" || (!sel && ui.tool === "shape"));
   const many = selItems(), grouped = many.length > 1 && many.every(i => i.grp && i.grp === many[0].grp);
   $("gSel").hidden = many.length < 2;
 
@@ -854,9 +875,9 @@ function panel() {
   const ung = many.length > 0 && many.some(i => i.grp) && (grouped || many.length < 2);
   $("bGroup").textContent = ung ? "Ungroup" : "Group"; $("bGroup").disabled = !ung && many.length < 2;
   const fitOn = ui.tool === "select" && ui.pick.family === "Fittings";
-  ["Select", "Pipe", "Text", "Arrow", "Dim"].forEach(t => $("t" + t).setAttribute("aria-pressed", ui.tool === t.toLowerCase() && !(t === "Select" && fitOn)));
+  ["Select", "Pipe", "Text", "Arrow", "Dim", "Shape"].forEach(t => $("t" + t).setAttribute("aria-pressed", ui.tool === t.toLowerCase() && !(t === "Select" && fitOn)));
   $("tFit").setAttribute("aria-pressed", fitOn);
-  $("bRot").disabled = !(kind === "sym" || kind === "pipe" || many.length > 1); $("bFlip").disabled = kind !== "sym";
+  $("bRot").disabled = !(kind === "sym" || kind === "pipe" || kind === "shape" || many.length > 1); $("bFlip").disabled = kind !== "sym" && kind !== "shape";
   $("bRot").textContent = kind === "pipe" ? "Rotate 45°" : "Rotate"; $("bDup").disabled = $("bDel").disabled = $("bCopy").disabled = !many.length;
   $("bPaste").disabled = !readClip();
   $("bUndo").disabled = hi <= 0; $("bRedo").disabled = hi >= hist.length - 1;
@@ -1020,6 +1041,7 @@ function panel() {
     if (de) { draw(); clearTimeout(panel.t); panel.t = setTimeout(commit, 500); } };
   swatches($("dimColors"), dt.color, v => dset("color", v));
   $("dimMeta").textContent = de ? `Measures ${fmtLen(dimGeom(sel).L, "ftin")} · ${fmtLen(dimGeom(sel).L, "mm")}` : "";
+  shapePanel(sel);
   const sh = doc.sheet;                                      // title block and parts list
   $("shFrame").checked = sh.frame; $("shBom").checked = sh.bom; $("shNums").checked = sh.nums; $("shLogo").checked = sh.logo;
   $("shPipe").checked = sh.pipe; $("shEquip").checked = sh.equip; $("shFields").hidden = !sh.frame; $("shLogoWrap").hidden = !LOGO;
@@ -1030,6 +1052,88 @@ function panel() {
   chipRow($("prec"), PRECS.map(p => p[0]), doc.style.prec, v => { doc.style.prec = v; commit(); }, v => PRECS.find(p => p[0] === v)[1]);
 }
 
+// Shapes panel: edits the selected shape, or sets up the next one (kind and style, remembered per kind)
+function shapePanel(sel) {
+  const se = !!(sel && sel.type === "shape"), k = se ? sel.kind : ui.shape.kind, t = se ? sel : shapeStyle(k);
+  const later = () => { draw(); clearTimeout(panel.t); panel.t = setTimeout(commit, 500); };
+  const set = (q, v) => { t[q] = v; if (se) commit(); else panel(); };
+  $("shapeTitle").textContent = se ? `Selected shape: ${SHAPE_NAME[k]}` : "Shapes";
+  $("shapeHint").textContent = se ? (shapeIsPath(k) ? "Drag a point to move it. Shift: 15° steps." : "Drag the corners to resize (Shift keeps the proportions), the round handle to turn it" +
+      (k === "callout" ? ", the yellow diamond to point the tail." : ".")) :
+    k === "poly" ? "Click each point, then double-click or Enter. Smooth curve makes it flow, good for a steam path." :
+    k === "line" ? "Drag from one end to the other." : "Drag on the sheet to draw it, or click for the usual size. Then drag its handles to size and turn it.";
+  // kind: a new shape can be any kind; a drawn one can change to another kind of the same sort (box or line)
+  const pick = v => {
+    if (!se) { ui.shape.kind = v; ui.draft = null; refresh(); return; }
+    if (shapeIsPath(v) !== shapeIsPath(sel.kind)) return;
+    const fx = q => SHAPE_N[q] || q === "water", was = sel.kind;
+    sel.kind = v;
+    if (fx(v) !== fx(was)) Object.assign(sel, JSON.parse(JSON.stringify(shapeStyle(v))));   // basic <-> effect: take the new kind's look
+    if (v === "callout" && !sel.tail) sel.tail = [Math.round(sel.x - sel.w * 0.35), Math.round(sel.y + sel.h / 2 + Math.max(25, sel.h * 0.6))];
+    if (v === "line" && sel.pts.length > 2) sel.kind = "poly";          // a line has two points; more stays a polyline
+    commit();
+  };
+  for (const [el, list] of [["spKinds", SHAPE_BASIC], ["spFx", SHAPE_FX]]) {
+    chipRow($(el), list.map(q => q[0]), k, pick, v => SHAPE_NAME[v]);
+    if (se) [...$(el).children].forEach((b, i) => { if (shapeIsPath(list[i][0]) !== shapeIsPath(sel.kind)) b.disabled = true; });
+  }
+  // size and turn (drawn box shapes)
+  $("spSizeRow").hidden = $("spRotRow").hidden = !se || shapeIsPath(k);
+  if (se && !shapeIsPath(k)) {
+    for (const [id, q] of [["spW", "w"], ["spH", "h"]]) {
+      const inp = $(id);
+      if (document.activeElement !== inp) inp.value = fmtLen(sel[q], null, 0.0625);
+      inp.onchange = () => { const v = parseLen(inp.value); if (!v || isNaN(v) || v < 1) { say(`"${inp.value}" isn't a size I can read. Try 6, 1'-6" or 150mm.`, "warn"); panel(); return; } sel[q] = r2(v); commit(); };
+      inp.onkeydown = e => { if (e.key === "Enter") inp.blur(); };
+    }
+    if (document.activeElement !== $("spRot")) $("spRot").value = Math.round(sel.rot || 0);
+    $("spRot").onchange = e => { sel.rot = ((Math.round(+e.target.value || 0) % 360) + 360) % 360; commit(); };
+  }
+  // how many wisps / puffs / drops
+  $("spNRow").hidden = !SHAPE_N[k];
+  if (SHAPE_N[k]) {
+    $("spNLabel").textContent = { wisps: "Wisps", plume: "Puffs", cloud: "Puffs", drops: "Drops" }[k];
+    $("spN").min = SHAPE_N[k][1]; $("spN").max = SHAPE_N[k][2];
+    if (document.activeElement !== $("spN")) $("spN").value = t.n || SHAPE_N[k][0];
+    $("spN").oninput = e => { const v = Math.round(+e.target.value); if (!v) return; t.n = Math.max(SHAPE_N[k][1], Math.min(SHAPE_N[k][2], v)); if (se) later(); };
+  }
+  $("spPathRow").hidden = k !== "poly";
+  $("spClosed").checked = !!t.closed; $("spClosed").onchange = e => set("closed", e.target.checked);
+  $("spSmooth").checked = !!t.smooth; $("spSmooth").onchange = e => set("smooth", e.target.checked);
+  // fill and outline
+  const canFill = !(k === "line" || (k === "poly" && !t.closed));
+  $("spFillWrap").hidden = $("spFill").hidden = !canFill;
+  $("spFillOn").checked = !!t.fill;
+  $("spFillOn").onchange = e => set("fill", e.target.checked ? (t.lastFill || (SHAPE_DEF[k].fill || "#f2f4f7")) : "");
+  swatches($("spFill"), t.fill || t.lastFill || "", v => { t.lastFill = v; set("fill", v); });
+  $("spLineOn").checked = !!t.stroke;
+  $("spLineOn").onchange = e => set("stroke", e.target.checked ? (t.lastStroke || SHAPE_DEF[k].stroke || "#1f3f73") : "");
+  swatches($("spLine"), t.stroke || t.lastStroke || "", v => { t.lastStroke = v; set("stroke", v); });
+  if (document.activeElement !== $("spSw")) $("spSw").value = t.sw;
+  $("spSw").oninput = e => { const v = +e.target.value; if (!(v > 0)) return; t.sw = Math.min(50, v); if (se) later(); };
+  chipRow($("spDash"), ["", "dash", "dot"], t.dash || "", v => set("dash", v), v => ({ "": "Solid", dash: "Dashed", dot: "Dotted" })[v]);
+  $("spOp").value = Math.round((t.op || 1) * 100); $("spOpV").textContent = `${Math.round((t.op || 1) * 100)}%`;
+  $("spOp").oninput = e => { t.op = +e.target.value / 100; $("spOpV").textContent = `${e.target.value}%`; if (se) later(); };
+  // text inside rectangles, ovals and callouts
+  $("spTextWrap").hidden = !shapeHasText(k);
+  if (shapeHasText(k)) {
+    if (document.activeElement !== $("spText")) $("spText").value = t.text || "";
+    $("spText").oninput = e => { t.text = e.target.value; if (se) later(); };
+    if (document.activeElement !== $("spTs")) $("spTs").value = t.ts || 12;
+    $("spTs").oninput = e => { const v = +e.target.value; if (!(v >= 1)) return; t.ts = Math.min(400, v); if (se) later(); };
+    swatches($("spTc"), t.tc || "#13233b", v => set("tc", v));
+  }
+  // layer, and order within it
+  chipRow($("spZ"), SHAPE_LAYERS.map(q => q[0]), t.z || "front", v => set("z", v), v => SHAPE_LAYERS.find(q => q[0] === v)[1]);
+  $("spOrder").hidden = !se;
+}
+function shapeOrder(front) {
+  const it = selected(); if (!it || it.type !== "shape") return;
+  doc.items = doc.items.filter(i => i !== it); if (front) doc.items.push(it); else doc.items.unshift(it); commit();
+}
+$("spFront").addEventListener("click", () => shapeOrder(true));
+$("spBack").addEventListener("click", () => shapeOrder(false));
+
 // ---------------------------------------------------------------- actions
 function setTool(t) { ui.tool = t; ui.draft = null; ui.cursor = null; if (t !== "select") selectIds([]); refresh(); }
 function addProduct() {
@@ -1037,6 +1141,44 @@ function addProduct() {
     logo: !!k.logo, logoPos: k.logoPos, logoSize: k.logoSize };
   if (EQ[k.product]) it.prm = JSON.parse(JSON.stringify((k.prms && k.prms[k.product]) || eqDefaults(k.product)));
   doc.items.push(it); snapSym(it); selectIds([it.id]); ui.tool = "select"; commit();
+}
+// Water level or flash steam clicked onto a pipe: fit it inside the bore of that run (Mason, 2026-11-20).
+// Water lies along the bottom of the bore, a third full; flash steam blows along the run in the direction it was drawn.
+function shapeIntoPipe(it, p) {
+  let best = null;
+  for (const q of doc.items) if (q.type === "pipe" && PIPE[q.nps]) {
+    const od = PIPE[q.nps][0];
+    for (let i = 0; i < q.pts.length - 1; i++) {
+      const a = q.pts[i], b = q.pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 1) continue;
+      const u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], t = Math.max(0, Math.min(L, (p[0] - a[0]) * u[0] + (p[1] - a[1]) * u[1]));
+      const c = [a[0] + u[0] * t, a[1] + u[1] * t], dd = Math.hypot(p[0] - c[0], p[1] - c[1]);
+      if (dd <= od / 2 + 2 && (!best || dd < best.dd)) best = { dd, q, a, u, L, t, c };
+    }
+  }
+  if (!best) return null;
+  const { q, u, L, t, c } = best, [od, w40, w80] = PIPE[q.nps], id = od - 2 * (q.sch === 80 ? w80 : w40);
+  let ang = Math.atan2(u[1], u[0]) * 180 / Math.PI;
+  const along = Math.max(20, Math.min(it.kind === "water" ? 220 : 200, L * 0.8)), mid = Math.max(along / 2, Math.min(L - along / 2, t));
+  const m = [best.a[0] + u[0] * mid, best.a[1] + u[1] * mid];
+  if (it.kind === "water") {
+    if (ang > 90 || ang <= -90) ang -= 180 * Math.sign(ang || 1);          // keep the water at the bottom of the bore
+    const h = id * 0.35, n = [-Math.sin(ang * Math.PI / 180), Math.cos(ang * Math.PI / 180)];
+    Object.assign(it, { w: r2(along), h: r2(h), rot: r2(((ang % 360) + 360) % 360), x: r2(m[0] + n[0] * (id / 2 - h / 2)), y: r2(m[1] + n[1] * (id / 2 - h / 2)) });
+  } else Object.assign(it, { w: r2(id * 0.6), h: r2(along), rot: r2((((ang + 90) % 360) + 360) % 360), x: r2(m[0]), y: r2(m[1]) });
+  it.z = "pipes";
+  return q.nps;
+}
+// a polyline shape from the points clicked so far (needs two)
+function finishPoly() {
+  const d = ui.draft; ui.draft = null; ui.cursor = null;
+  if (!d || d.pts.length < 2) { draw(); return; }
+  const it = Object.assign({ id: nextId++, type: "shape", kind: "poly" }, JSON.parse(JSON.stringify(shapeStyle("poly"))), { pts: d.pts });
+  doc.items.push(it); selectIds([it.id]); ui.tool = "select"; commit();
+}
+// p moved to the nearest 15° direction from a, same distance
+function step15(a, p) {
+  const L = Math.hypot(p[0] - a[0], p[1] - a[1]), t = Math.round(Math.atan2(p[1] - a[1], p[0] - a[0]) / (Math.PI / 12)) * Math.PI / 12;
+  return [r2(a[0] + L * Math.cos(t)), r2(a[1] + L * Math.sin(t))];
 }
 function finishPipe() {
   const d = ui.draft; ui.draft = null; ui.cursor = null;
@@ -1087,9 +1229,9 @@ function joinNote(n) { if (n) say(n > 1 ? "Joined to the pipes at both ends." : 
 function del() { if (!ui.set.length) return; const k = new Set([...ui.set, ...hiddenMates(selItems()).map(i => i.id)]); doc.items = doc.items.filter(i => !k.has(i.id)); selectIds([]); commit(); }
 // move an item by (dx, dy) from its saved copy o
 function shiftItem(it, o, dx, dy) {
-  if (it.type === "pipe") it.pts = o.pts.map(p => [p[0] + dx, p[1] + dy]);
+  if (it.pts) it.pts = o.pts.map(p => [p[0] + dx, p[1] + dy]);                // pipes, line and polyline shapes
   else if (it.type === "arrow" || it.type === "dim") { it.a = [o.a[0] + dx, o.a[1] + dy]; it.b = [o.b[0] + dx, o.b[1] + dy]; }
-  else { it.x = o.x + dx; it.y = o.y + dy; }
+  else { it.x = o.x + dx; it.y = o.y + dy; if (o.tail) it.tail = [o.tail[0] + dx, o.tail[1] + dy]; }
 }
 function dup() {
   const src = selItems(); if (!src.length) return;
@@ -1108,6 +1250,7 @@ function rotateSet(m) {
   const B = m.map(bboxOf), cx = gridSnap((Math.min(...B.map(q => q[0])) + Math.max(...B.map(q => q[2]))) / 2), cy = gridSnap((Math.min(...B.map(q => q[1])) + Math.max(...B.map(q => q[3]))) / 2);
   const R = p => [Math.round((cx - (p[1] - cy)) * 100) / 100, Math.round((cy + (p[0] - cx)) * 100) / 100];
   for (const it of m) {
+    if (it.type === "shape") { shapeTurn(it, 90, [cx, cy]); continue; }
     if (it.type === "pipe") it.pts = it.pts.map(R);
     else if (it.type === "arrow" || it.type === "dim") { it.a = R(it.a); it.b = R(it.b); if (it.type === "dim" && it.mode !== "aligned") it.mode = it.mode === "h" ? "v" : "h"; }
     else { [it.x, it.y] = R([it.x, it.y]); if (it.type === "sym") it.rot = (it.rot + 90) % 360; }
@@ -1138,6 +1281,7 @@ function rotate() {
   const m = selItems(); if (m.length > 1) { rotateSet(m); return; }
   const s = selected(); if (!s) return;
   if (s.type === "sym") { s.rot = (s.rot + 90) % 360; commit(); }
+  else if (s.type === "shape") { shapeTurn(s, 90); commit(); }
   else if (s.type === "pipe") {                           // 45 degrees about the first point
     const o = s.pts[0], c = Math.SQRT1_2;
     s.pts = s.pts.map(p => { const x = p[0] - o[0], y = p[1] - o[1]; return [Math.round((o[0] + x * c - y * c) * 100) / 100, Math.round((o[1] + x * c + y * c) * 100) / 100]; });
@@ -1145,7 +1289,8 @@ function rotate() {
   }
 }
 function mirror() {
-  const s = selected(); if (!(s && s.type === "sym")) return;
+  const s = selected(); if (s && s.type === "shape") { shapeMirror(s); commit(); return; }
+  if (!(s && s.type === "sym")) return;
   const sp = symOf(s).ports, io = sp.length >= 2 && Math.abs(sp[1][1] - sp[0][1]) < 0.5 ? portsOf(s) : null;
   s.flip = !s.flip;
   if (io) { const n = portsOf(s); s.x = r2(s.x + io[0][0] - n[1][0]); s.y = r2(s.y + io[0][1] - n[1][1]); }   // in and out swap places
@@ -1187,6 +1332,18 @@ cv.addEventListener("pointerdown", e => {
     }
     return;
   }
+  if (ui.tool === "shape") {
+    const k = ui.shape.kind, p = e.altKey ? [r2(w[0]), r2(w[1])] : [gridSnap(w[0]), gridSnap(w[1])];
+    if (k === "poly") {                                     // click point by point, like a pipe
+      if (dbl && ui.draft) { finishPoly(); return; }
+      const prev = ui.draft && ui.draft.pts[ui.draft.pts.length - 1], q = prev && e.shiftKey ? step15(prev, w) : p;
+      if (!ui.draft) ui.draft = { pts: [q] }; else if (Math.hypot(q[0] - prev[0], q[1] - prev[1]) > 0.5) ui.draft.pts.push(q);
+      draw(); return;
+    }
+    cv.setPointerCapture(e.pointerId);
+    ui.drag = { kind: "shapeNew", start: p, cur: p, moved: false, shift: e.shiftKey }; draw();
+    return;
+  }
   if (ui.tool === "text") {
     const it = { id: nextId++, type: "text", x: gridSnap(w[0]), y: gridSnap(w[1]), text: ui.text.text || "Label", size: ui.text.size, color: ui.text.color };
     doc.items.push(it); selectIds([it.id]); ui.tool = "select"; commit(); $("textVal").focus(); $("textVal").select();
@@ -1200,6 +1357,8 @@ cv.addEventListener("pointerdown", e => {
     ui.drag = { kind: "grip", id: it.id, gp, start: w, v0: it.prm[gp.k] !== undefined ? it.prm[gp.k] : EQ[it.product].defaults[gp.k], anchor: symXform(it)([0, 0]), moved: false };
     return;
   }
+  if (h && selected() && selected().type === "shape") {
+    ui.drag = { kind: "handle", id: ui.sel, hk: h.dataset.h, moved: false, o: JSON.stringify(selected()) }; return; }
   if (h && selected()) {
     const it = selected(), i = +h.dataset.h, nb = it.type === "pipe" ? it.pts[i === 0 ? 1 : i - 1] : null;   // Shift: level / plumb with this
     ui.drag = { kind: "handle", id: ui.sel, i, moved: false, orig0: nb ? JSON.stringify(nb) : null }; return; }
@@ -1227,11 +1386,13 @@ cv.addEventListener("pointermove", e => {
   if (!d) {
     if (ui.draft) { const prev = ui.draft.pts[ui.draft.pts.length - 1];
       ui.cursor = ui.tool === "pipe" ? snapPoint(w, prev, null, e.altKey && !e.shiftKey, ui.draft.pts.length === 1 ? ui.draft.dir : null, e.shiftKey).slice(0, 2) :
+        ui.tool === "shape" ? (e.shiftKey ? step15(prev, w) : e.altKey ? [r2(w[0]), r2(w[1])] : [gridSnap(w[0]), gridSnap(w[1])]) :
         ui.tool === "dim" && ui.draft.pts.length === 1 ? dimSnap(w) : w; draw(); }
     return;
   }
   if (d.kind === "pan") { ui.view.cx = d.cx - (e.clientX - d.sx) / ui.view.s; ui.view.cy = d.cy - (e.clientY - d.sy) / ui.view.s; d.moved = true; draw(); return; }
   if (d.kind === "box") { d.cur = w; d.moved = true; draw(); return; }
+  if (d.kind === "shapeNew") { d.cur = e.altKey ? [r2(w[0]), r2(w[1])] : [gridSnap(w[0]), gridSnap(w[1])]; d.shift = e.shiftKey; d.moved = true; draw(); return; }
   if (d.kind === "grip") {                                  // stretch equipment along the handle's direction; the origin stays put
     const it = doc.items.find(i => i.id === d.id); if (!it) return;
     const a = it.rot * Math.PI / 180, fl = it.flip ? -1 : 1, u = d.gp.u, wu = [u[0] * fl * Math.cos(a) - u[1] * Math.sin(a), u[0] * fl * Math.sin(a) + u[1] * Math.cos(a)];
@@ -1257,6 +1418,7 @@ cv.addEventListener("pointermove", e => {
   }
   const it = doc.items.find(i => i.id === d.id); if (!it) return;
   d.moved = true;
+  if (d.kind === "handle" && it.type === "shape") { shapeDragHandle(it, JSON.parse(d.o), d.hk, w, e.shiftKey, e.altKey, q => [gridSnap(q[0]), gridSnap(q[1])]); draw(); panel(); return; }
   if (d.kind === "handle") {
     if (it.type === "pipe") {
       const nb = e.shiftKey ? JSON.parse(d.orig0 || "null") : null;
@@ -1268,7 +1430,7 @@ cv.addEventListener("pointermove", e => {
     } else it[d.i ? "b" : "a"] = [Math.round(w[0]), Math.round(w[1])];
   } else {
     const o = JSON.parse(d.orig[it.id]), [dx, dy] = dxy();
-    if (it.type === "pipe") { const sx = lock === "y" ? 0 : gridSnap(dx), sy = lock === "x" ? 0 : gridSnap(dy); it.pts = o.pts.map(p => [p[0] + sx, p[1] + sy]); }
+    if (it.pts) { const sx = lock === "y" ? 0 : gridSnap(dx), sy = lock === "x" ? 0 : gridSnap(dy); it.pts = o.pts.map(p => [p[0] + sx, p[1] + sy]); }
     else if (it.type === "arrow") { it.a = [o.a[0] + dx, o.a[1] + dy]; it.b = [o.b[0] + dx, o.b[1] + dy]; }
     else if (it.type === "dim") { const sx = lock === "y" ? 0 : gridSnap(dx), sy = lock === "x" ? 0 : gridSnap(dy); it.a = [o.a[0] + sx, o.a[1] + sy]; it.b = [o.b[0] + sx, o.b[1] + sy]; }
     else {
@@ -1283,7 +1445,8 @@ cv.addEventListener("pointermove", e => {
         }
         d.inline = d.free && !hit ? findInline(it, d.skip) : null;
       }
-      else { if (lock !== "y") it.x = o.x + gridSnap(dx); if (lock !== "x") it.y = o.y + gridSnap(dy); if (!lock) { it.x = gridSnap(it.x); it.y = gridSnap(it.y); } }
+      else { if (lock !== "y") it.x = o.x + gridSnap(dx); if (lock !== "x") it.y = o.y + gridSnap(dy); if (!lock) { it.x = gridSnap(it.x); it.y = gridSnap(it.y); }
+        if (o.tail) it.tail = [o.tail[0] + it.x - o.x, o.tail[1] + it.y - o.y]; }
     }
     if (d.kind === "move") moveExtras(d);
   }
@@ -1299,6 +1462,14 @@ function moveExtras(d) {
 }
 function endDrag() {
   const d = ui.drag; ui.drag = null;
+  if (d && d.kind === "shapeNew") {
+    const it = shapeNew(ui.shape.kind, shapeStyle(ui.shape.kind), d.start, d.cur, d.shift); it.id = nextId++;
+    const fitted = !d.moved && (it.kind === "water" || it.kind === "wisps") && shapeIntoPipe(it, d.start);
+    doc.items.push(it); selectIds([it.id]); ui.tool = "select"; commit();
+    if (fitted) say(`Fitted inside the ${fitted} pipe. Drag the handles to change it.`, "ok");
+    if (it.kind === "callout") { $("spText").focus(); $("spText").select(); }
+    return;
+  }
   if (d && d.kind === "box") {
     if (d.cur) {
       const x0 = Math.min(d.start[0], d.cur[0]), x1 = Math.max(d.start[0], d.cur[0]), y0 = Math.min(d.start[1], d.cur[1]), y1 = Math.max(d.start[1], d.cur[1]);
@@ -1320,7 +1491,8 @@ function endDrag() {
 }
 cv.addEventListener("pointerup", endDrag); cv.addEventListener("pointercancel", endDrag);
 cv.addEventListener("dblclick", e => {
-  const g = e.target.closest("[data-id]"); if (ui.tool === "select" && g && selected() && selected().type === "text") { $("textVal").focus(); $("textVal").select(); } });
+  const g = e.target.closest("[data-id]"); if (ui.tool === "select" && g && selected() && selected().type === "text") { $("textVal").focus(); $("textVal").select(); }
+  if (ui.tool === "select" && g && selected() && selected().type === "shape" && shapeHasText(selected().kind)) { $("spText").focus(); $("spText").select(); } });
 cv.addEventListener("wheel", e => { e.preventDefault(); zoom(e.deltaY < 0 ? 1.15 : 1 / 1.15, toWorld(e)); }, { passive: false });
 window.addEventListener("keydown", e => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
@@ -1328,6 +1500,7 @@ window.addEventListener("keydown", e => {
   if (e.key === "?" && !mod) { e.preventDefault(); keysDialog(); return; }
   if (k === "escape") { if (ui.draft) { ui.draft = null; ui.cursor = null; draw(); } else setTool("select"); }
   else if (k === "enter" && ui.tool === "pipe") finishPipe();
+  else if (k === "enter" && ui.tool === "shape" && ui.draft) finishPoly();
   else if ((k === "delete" || k === "backspace") && ui.set.length) { e.preventDefault(); del(); }
   else if (mod && k === "g") { e.preventDefault(); if (e.shiftKey) ungroup(); else group(); }
   else if (mod && k === "a") { e.preventDefault(); setTool("select"); selectIds(doc.items.filter(valid).map(i => i.id)); refresh(); }
@@ -1339,7 +1512,7 @@ window.addEventListener("keydown", e => {
   else if (mod && k === "d") { e.preventDefault(); dup(); }
   else if (k === "r" && !mod) rotate(); else if (k === "m" && !mod) mirror();
   else if (k === "v" && !mod) setTool("select"); else if (k === "p" && !mod) setTool("pipe"); else if (k === "t" && !mod) setTool("text");
-  else if (k === "d" && !mod) setTool("dim");
+  else if (k === "d" && !mod) setTool("dim"); else if (k === "s" && !mod) setTool("shape");
 });
 
 // ---------------------------------------------------------------- export
@@ -1819,13 +1992,15 @@ for (const k of Object.keys(SHEET0().f)) $("sh_" + k).addEventListener("input", 
 // Keep this list in step with the keydown handler above.
 const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 const KEYS = [
-  ["Tools", [["V", "Select"], ["P", "Pipe"], ["T", "Text"], ["D", "Dimension"], ["Esc", "Cancel what you're drawing, or back to Select"]]],
+  ["Tools", [["V", "Select"], ["P", "Pipe"], ["T", "Text"], ["D", "Dimension"], ["S", "Shapes and steam effects"], ["Esc", "Cancel what you're drawing, or back to Select"]]],
   ["Editing", [["R", "Rotate"], ["M", "Mirror"], ["Delete|Backspace", "Delete"],
     ["Ctrl+D", "Duplicate"], ["Ctrl+A", "Select everything"], ["Ctrl+G", "Group"], ["Ctrl+Shift+G", "Ungroup"]]],
   ["Copy and undo", [["Ctrl+C", "Copy, works across drawings"], ["Ctrl+X", "Cut"], ["Ctrl+V", "Paste"],
     ["Ctrl+Z", "Undo"], ["Ctrl+Y|Ctrl+Shift+Z", "Redo"]]],
   ["Drawing a pipe", [["0-9", "Type a run length, then Enter to place it"], ["Enter", "Finish the pipe"], ["Alt", "Hold for any angle, not just 45° steps"], ["Shift", "Hold to keep the run horizontal or vertical"],
     ["Double-click", "Finish the pipe"]]],
+  ["Shapes", [["Drag", "Draw the shape. A click gives the usual size"], ["Shift", "Keep it square; lines and turning go in 15° steps; corner handles keep the proportions"],
+    ["Alt", "Hold to place off the 5 mm grid"], ["Double-click", "Finish a polyline, or edit a shape's text"]]],
   ["Mouse", [["Shift+Click", "Add to or take out of the selection"], ["Shift+Drag", "Box-select on empty sheet; on an item, move it straight across or straight up and down"], ["Alt+Click", "Pick one item inside a group"],
     ["Drag", "Drop a trap, strainer or valve onto a pipe to cut it in"], ["Scroll", "Zoom"], ["?", "This list"]]],
 ];
@@ -1839,7 +2014,7 @@ $("bKeys").addEventListener("click", keysDialog);
 $("keysClose").addEventListener("click", () => $("keysDlg").close());
 
 // ---------------------------------------------------------------- wiring
-[["tPipe", "pipe"], ["tText", "text"], ["tArrow", "arrow"], ["tDim", "dim"]].forEach(([id, t]) => $(id).addEventListener("click", () => setTool(t)));
+[["tPipe", "pipe"], ["tText", "text"], ["tArrow", "arrow"], ["tDim", "dim"], ["tShape", "shape"]].forEach(([id, t]) => $(id).addEventListener("click", () => setTool(t)));
 // Fittings sit in the toolbar beside Pipe (Mason, 2026-11-18): the button opens the fittings picker; Select goes back to the products
 function pickFamily(v) {
   if (document.querySelector(".cols").classList.contains("noside")) setSide(true);   // the picker is in the panel

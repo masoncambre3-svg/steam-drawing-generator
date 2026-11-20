@@ -1164,7 +1164,8 @@ function shapeIntoPipe(it, p) {
     if (ang > 90 || ang <= -90) ang -= 180 * Math.sign(ang || 1);          // keep the water at the bottom of the bore
     const h = id * 0.35, n = [-Math.sin(ang * Math.PI / 180), Math.cos(ang * Math.PI / 180)];
     Object.assign(it, { w: r2(along), h: r2(h), rot: r2(((ang % 360) + 360) % 360), x: r2(m[0] + n[0] * (id / 2 - h / 2)), y: r2(m[1] + n[1] * (id / 2 - h / 2)) });
-  } else Object.assign(it, { w: r2(id * 0.6), h: r2(along), rot: r2((((ang + 90) % 360) + 360) % 360), x: r2(m[0]), y: r2(m[1]) });
+  } else Object.assign(it, { w: r2(id * 0.8), h: r2(along), rot: r2((((ang + 90) % 360) + 360) % 360), x: r2(m[0]), y: r2(m[1]),
+    n: id < 60 ? 2 : 3, stroke: "#5b6878" });                  // fewer, fuller wisps in small pipe; darker outline on the grey pipe
   it.z = "pipes";
   return q.nps;
 }

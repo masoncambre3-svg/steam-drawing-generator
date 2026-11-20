@@ -85,7 +85,7 @@ function shapeBody(it) {
       const n = _N(it), cell = w / n, out = [];
       for (let i = 0; i < n; i++) {
         const x0 = -a + (i + 0.5) * cell, ph = i * 2.1 + 0.6, top = 0.72 + 0.28 * ((i * 0.618 + 0.3) % 1);
-        const A = Math.min(cell * 0.3, h * 0.12), W0 = Math.min(cell * 0.2, h * 0.07), L = [], R = [], S = 30;
+        const A = Math.min(cell * 0.28, h * 0.12), W0 = Math.min(cell * 0.27, h * 0.08), L = [], R = [], S = 30;
         const cx = t => x0 + A * Math.sin(2 * Math.PI * 1.15 * t + ph) * (0.35 + 0.65 * t), cy = t => b - t * h * top;
         for (let k = 0; k <= S; k++) {
           const t = k / S, dx = cx(t + 0.001) - cx(t), dy = cy(t + 0.001) - cy(t), l = Math.hypot(dx, dy) || 1;

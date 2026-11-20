@@ -1324,23 +1324,42 @@ window.addEventListener("keydown", e => {
 
 // ---------------------------------------------------------------- export
 function say(msg, cls) { const s = $("status"); s.textContent = msg; s.className = "status" + (cls ? " " + cls : ""); }
-function exportSvg(maxPx) {
+// Export resolution (Mason, 2026-11-20: exports were blurry zoomed in). It used to be 3200 px on the long side whatever
+// the drawing size, so a 2.4 m run came out at ~1.3 px per mm and the 0.35 mm outlines went grey. Now the pixel density
+// follows the drawing: up to 12 px per mm (about 300 dpi at 1:1), capped at 48 megapixels and 16000 px a side, which a
+// browser canvas can still render and PowerPoint / Word take from the clipboard. If the canvas can't be made at that
+// size, the PNG retries at half and then a quarter. The SVG says it is the same size, so viewers that turn an SVG into
+// pixels at the size it says (Windows Photos, an email paste of an Office picture) get the same detail.
+const EXP_PXMM = 12, EXP_AREA = 48e6, EXP_SIDE = 16000;
+function exportScale(w, h) { return Math.min(EXP_PXMM, Math.sqrt(EXP_AREA / (w * h)), EXP_SIDE / Math.max(w, h)); }
+function exportSvg(scale) {
   const b = docBox(8); if (!b) return null;
-  const w = b[2] - b[0], h = b[3] - b[1], k = Math.min(8, maxPx / Math.max(w, h));
+  const w = b[2] - b[0], h = b[3] - b[1], k = (scale || 1) * exportScale(w, h);
   gradN = 5000;
   const bg = $("whiteBg").checked ? `<rect x="${b[0]}" y="${b[1]}" width="${w}" height="${h}" fill="#ffffff"/>` : "";
   return { text: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b[0]} ${b[1]} ${w} ${h}" width="${Math.round(w * k)}" height="${Math.round(h * k)}">${bg}${renderAll()}</svg>`,
-    W: Math.round(w * k), H: Math.round(h * k) };
+    W: Math.round(w * k), H: Math.round(h * k), k };
 }
-function pngBlob() {
+function pngAt(scale) {
   return new Promise((resolve, reject) => {
-    const f = exportSvg(3200); if (!f) return reject(new Error("empty"));
+    const f = exportSvg(scale); if (!f) return reject(new Error("empty"));
     const url = URL.createObjectURL(new Blob([f.text], { type: "image/svg+xml" })), img = new Image();
-    img.onload = () => { const c = document.createElement("canvas"); c.width = f.W; c.height = f.H; c.getContext("2d").drawImage(img, 0, 0, f.W, f.H); URL.revokeObjectURL(url);
-      c.toBlob(bl => bl ? resolve(bl) : reject(new Error("render failed")), "image/png"); };
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      try {
+        const c = document.createElement("canvas"); c.width = f.W; c.height = f.H;
+        const g = c.getContext("2d"); if (!g) return reject(new Error("canvas"));
+        g.imageSmoothingQuality = "high"; g.drawImage(img, 0, 0, f.W, f.H);
+        c.toBlob(bl => { c.width = c.height = 0; bl ? resolve(bl) : reject(new Error("render failed")); }, "image/png");
+      } catch (e) { reject(e); }
+    };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("render failed")); };
     img.src = url;
   });
+}
+async function pngBlob() {
+  for (const sc of [1, 0.5, 0.25]) { try { return await pngAt(sc); } catch (e) { if (e.message === "empty") throw e; } }
+  throw new Error("render failed");
 }
 async function save(name, getData) {
   if (!doc.items.length) { say("The drawing is empty.", "warn"); return; }
@@ -1351,8 +1370,8 @@ async function save(name, getData) {
     say(`Saved ${name} to your downloads folder`, "ok");
   } catch (e) { say("Couldn't save the file.", "warn"); }
 }
-$("pngBtn").addEventListener("click", () => save("steam-drawing.png", pngBlob));
-$("svgBtn").addEventListener("click", () => save("steam-drawing.svg", async () => exportSvg(3200).text));
+$("pngBtn").addEventListener("click", () => { say("Rendering the PNG…"); save("steam-drawing.png", pngBlob); });
+$("svgBtn").addEventListener("click", () => save("steam-drawing.svg", async () => exportSvg().text));
 $("saveBtn").addEventListener("click", () => save("steam-drawing.json", async () => JSON.stringify(doc)));
 $("copyBtn").addEventListener("click", async () => {
   if (!doc.items.length) { say("The drawing is empty.", "warn"); return; }

@@ -109,7 +109,8 @@ const VARIANT_LABEL = { NPT: "NPT", screwed: "Screwed", flanged: "Flanged" };
 const GRID = 5;
 const BUILD = "17";
 const LOGO = window.SDG_LOGO || null;                       // vector Spirax Sarco logo, app/logo.js
-const STYLE0 = { shade: true, blackLines: false, units: "ftin", prec: 1 };
+const STYLE0 = { shade: true, blackLines: false, units: "ftin", prec: 1, bg: "#ffffff" };
+function bgCol() { return /^#[0-9a-f]{6}$/i.test(doc.style.bg || "") ? doc.style.bg : "#ffffff"; }
 const UNITS = [["ftin", "ft-in"], ["in", "in"], ["mm", "mm"]];
 const PRECS = [[1, '1"'], [0.5, '1/2"'], [0.0625, '1/16"']];     // what ft-in and in lengths round to
 const LOGO_POS = [["center", "On body"], ["above", "Above"], ["below", "Below"]];
@@ -717,7 +718,7 @@ function draw() {
   const minor = v.s * 10 >= 7 ? 10 : 50, major = minor * 10 >= 100 ? (minor === 10 ? 100 : 500) : 100;
   let o = `<defs><pattern id="gm" width="${minor}" height="${minor}" patternUnits="userSpaceOnUse"><path d="M${minor} 0H0V${minor}" fill="none" stroke="#e6ebf1" stroke-width="${px}"/></pattern>` +
     `<pattern id="gM" width="${major}" height="${major}" patternUnits="userSpaceOnUse"><path d="M${major} 0H0V${major}" fill="none" stroke="#cdd6e0" stroke-width="${px}"/></pattern></defs>` +
-    `<rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="#ffffff"/><rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="url(#gm)"/><rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="url(#gM)"/>`;
+    `<rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="${$("whiteBg").checked ? bgCol() : "#ffffff"}"/><rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="url(#gm)"/><rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="url(#gM)"/>`;
   o += renderAll() + dimOverlay();
   // connection points while routing pipe or moving things
   if (ui.tool === "pipe" || ui.tool === "dim" || ui.drag) for (const t of snapTargets(ui.drag && ui.drag.ids ? new Set(ui.drag.ids) : ui.drag && ui.drag.id)) o += `<circle cx="${t[0]}" cy="${t[1]}" r="${4 * px}" fill="#fff" stroke="#1f5fae" stroke-width="${1.5 * px}" pointer-events="none"/>`;
@@ -785,7 +786,18 @@ function dimDraft(cur) {
 }
 const selected = () => doc.items.find(i => i.id === ui.sel) || null;
 // Selection: ui.set holds every selected id; ui.sel is that id when exactly one item is selected (the panel edits it).
-function selectIds(ids) { ui.set = [...new Set(ids)]; ui.sel = ui.set.length === 1 ? ui.set[0] : null; }
+// Only items that can be drawn are selected. A product the library no longer has (an old size, a removed product) stays
+// in the drawing file but is never selected: drawing a selection box or snapping round it used to throw, which froze a
+// group holding one (it wouldn't move on screen or ungroup; Mason, 2026-11-20). It still goes along with its group.
+function selectIds(ids) {
+  ui.set = [...new Set(ids)].filter(id => { const it = doc.items.find(q => q.id === id); return it && valid(it); });
+  ui.sel = ui.set.length === 1 ? ui.set[0] : null;
+}
+// group members that can't be drawn (product missing from the library), for the groups of these items
+function hiddenMates(items) {
+  const gs = new Set(items.map(i => i.grp).filter(Boolean));
+  return gs.size ? doc.items.filter(i => i.grp && gs.has(i.grp) && !valid(i)) : [];
+}
 const selItems = () => ui.set.map(id => doc.items.find(i => i.id === id)).filter(Boolean);
 const groupOf = it => it.grp ? doc.items.filter(i => i.grp === it.grp) : [it];
 const nextGrp = () => 1 + Math.max(0, ...doc.items.map(i => i.grp || 0));
@@ -848,7 +860,7 @@ function panel() {
   $("bRot").textContent = kind === "pipe" ? "Rotate 45°" : "Rotate"; $("bDup").disabled = $("bDel").disabled = $("bCopy").disabled = !many.length;
   $("bPaste").disabled = !readClip();
   $("bUndo").disabled = hi <= 0; $("bRedo").disabled = hi >= hist.length - 1;
-  $("shade").checked = doc.style.shade; $("blackLines").checked = doc.style.blackLines;
+  $("shade").checked = doc.style.shade; $("blackLines").checked = doc.style.blackLines; $("bgColor").value = bgCol();
 
   // product picker: edits the selected product, or sets up the next one to add
   const tgt = kind === "sym" ? sel : ui.pick, editing = kind === "sym";
@@ -1072,7 +1084,7 @@ function dropStraight(pts) {
   return out;
 }
 function joinNote(n) { if (n) say(n > 1 ? "Joined to the pipes at both ends." : "Joined to the pipe it meets.", "ok"); }
-function del() { if (!ui.set.length) return; const k = new Set(ui.set); doc.items = doc.items.filter(i => !k.has(i.id)); selectIds([]); commit(); }
+function del() { if (!ui.set.length) return; const k = new Set([...ui.set, ...hiddenMates(selItems()).map(i => i.id)]); doc.items = doc.items.filter(i => !k.has(i.id)); selectIds([]); commit(); }
 // move an item by (dx, dy) from its saved copy o
 function shiftItem(it, o, dx, dy) {
   if (it.type === "pipe") it.pts = o.pts.map(p => [p[0] + dx, p[1] + dy]);
@@ -1090,7 +1102,7 @@ function dup() {
   selectIds(out); commit();
 }
 function group() { const m = selItems(); if (m.length < 2) return; const g = nextGrp(); m.forEach(i => { i.grp = g; }); commit(); say(`Grouped ${m.length} items.`, "ok"); }
-function ungroup() { const m = selItems(); if (!m.some(i => i.grp)) return; m.forEach(i => { delete i.grp; }); commit(); say("Ungrouped.", "ok"); }
+function ungroup() { const m = selItems(); if (!m.some(i => i.grp)) return; [...m, ...hiddenMates(m)].forEach(i => { delete i.grp; }); commit(); say("Ungrouped.", "ok"); }
 // several items: turn 90 degrees clockwise about the middle of the selection
 function rotateSet(m) {
   const B = m.map(bboxOf), cx = gridSnap((Math.min(...B.map(q => q[0])) + Math.max(...B.map(q => q[2]))) / 2), cy = gridSnap((Math.min(...B.map(q => q[1])) + Math.max(...B.map(q => q[3]))) / 2);
@@ -1199,10 +1211,10 @@ cv.addEventListener("pointerdown", e => {
     } else if (!(ui.set.length > 1 && ui.set.includes(id))) selectIds(ids);
     const move = selItems();
     if (move.length) {
-      const att = attachedPipes(move.filter(i => i.type === "sym").map(i => i.id));
+      const att = attachedPipes(move.filter(i => i.type === "sym").map(i => i.id)), hid = hiddenMates(move);
       ui.drag = { kind: "move", id: move.length === 1 ? move[0].id : null, ids: move.map(i => i.id), start: w,
-        orig: Object.fromEntries(move.map(i => [i.id, JSON.stringify(i)])), moved: false,
-        skip: new Set([...move.map(i => i.id), ...att]), free: move.length === 1 && !att.size && canInline(move[0]) };
+        orig: Object.fromEntries([...move, ...hid].map(i => [i.id, JSON.stringify(i)])), moved: false, extra: hid.map(i => i.id),
+        skip: new Set([...move.map(i => i.id), ...att]), free: move.length === 1 && !att.size && !hid.length && canInline(move[0]) };
     }
     refresh();
     return;
@@ -1241,7 +1253,7 @@ cv.addEventListener("pointermove", e => {
     for (const p of mine) for (const t of targets) { const q = Math.hypot(t[0] - p[0], t[1] - p[1]); if (q < bd && !(lock === "x" && Math.abs(t[1] - p[1]) > 0.01) && !(lock === "y" && Math.abs(t[0] - p[0]) > 0.01)) { bd = q; best = [t[0] - p[0], t[1] - p[1]]; } }
     const sx = best ? dx + best[0] : lock === "y" ? 0 : gridSnap(dx), sy = best ? dy + best[1] : lock === "x" ? 0 : gridSnap(dy);
     items.forEach(it => shiftItem(it, JSON.parse(d.orig[it.id]), sx, sy));
-    reconnect(); d.moved = true; draw(); return;
+    moveExtras(d); reconnect(); d.moved = true; draw(); return;
   }
   const it = doc.items.find(i => i.id === d.id); if (!it) return;
   d.moved = true;
@@ -1273,10 +1285,18 @@ cv.addEventListener("pointermove", e => {
       }
       else { if (lock !== "y") it.x = o.x + gridSnap(dx); if (lock !== "x") it.y = o.y + gridSnap(dy); if (!lock) { it.x = gridSnap(it.x); it.y = gridSnap(it.y); } }
     }
+    if (d.kind === "move") moveExtras(d);
   }
   reconnect();
   draw();
 });
+// hidden group members (see hiddenMates) follow the group by however far its first item moved
+function moveExtras(d) {
+  if (!d.extra || !d.extra.length) return;
+  const ref = doc.items.find(i => i.id === d.ids[0]); if (!ref) return;
+  const at = i => i.pts ? i.pts[0] : i.a ? i.a : [i.x, i.y], a = at(ref), o = at(JSON.parse(d.orig[ref.id]));
+  for (const id of d.extra) { const it = doc.items.find(i => i.id === id); if (it) shiftItem(it, JSON.parse(d.orig[id]), a[0] - o[0], a[1] - o[1]); }
+}
 function endDrag() {
   const d = ui.drag; ui.drag = null;
   if (d && d.kind === "box") {
@@ -1336,7 +1356,7 @@ function exportSvg(scale) {
   const b = docBox(8); if (!b) return null;
   const w = b[2] - b[0], h = b[3] - b[1], k = (scale || 1) * exportScale(w, h);
   gradN = 5000;
-  const bg = $("whiteBg").checked ? `<rect x="${b[0]}" y="${b[1]}" width="${w}" height="${h}" fill="#ffffff"/>` : "";
+  const bg = $("whiteBg").checked ? `<rect x="${b[0]}" y="${b[1]}" width="${w}" height="${h}" fill="${bgCol()}"/>` : "";
   return { text: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b[0]} ${b[1]} ${w} ${h}" width="${Math.round(w * k)}" height="${Math.round(h * k)}">${bg}${renderAll()}</svg>`,
     W: Math.round(w * k), H: Math.round(h * k), k };
 }
@@ -1841,6 +1861,11 @@ $("bRot").addEventListener("click", rotate); $("bFlip").addEventListener("click"
 $("bUndo").addEventListener("click", () => step(-1)); $("bRedo").addEventListener("click", () => step(1));
 $("bIn").addEventListener("click", () => zoom(1.25)); $("bOut").addEventListener("click", () => zoom(0.8)); $("bFit").addEventListener("click", () => { fit(); draw(); });
 $("shade").addEventListener("change", e => { doc.style.shade = e.target.checked; commit(); });
+// Background (Mason, 2026-11-20): any colour, saved with the drawing in doc.style.bg. The tick box decides whether the
+// export gets it (off = see-through); the board shows it while ticked. Picking a colour ticks the box.
+$("bgColor").addEventListener("input", e => { doc.style.bg = e.target.value; $("whiteBg").checked = true; draw(); });
+$("bgColor").addEventListener("change", e => { doc.style.bg = e.target.value; $("whiteBg").checked = true; commit(); });
+$("whiteBg").addEventListener("change", draw);
 $("blackLines").addEventListener("change", e => { doc.style.blackLines = e.target.checked; commit(); });
 window.addEventListener("resize", draw);
 // TI dimensions shown on the selected product(s): on / off, remembered in this browser

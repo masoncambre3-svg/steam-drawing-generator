@@ -168,7 +168,8 @@
         <button class="btn primary" id="copyBtn" type="button">Copy image</button>
         <button class="btn" id="pngBtn" type="button">Download PNG</button>
         <button class="btn" id="svgBtn" type="button">Download SVG</button>
-        <label class="check"><input type="checkbox" id="whiteBg"> White background</label>
+        <label class="check" title="Off: the exported picture has a see-through background"><input type="checkbox" id="whiteBg"> Background</label>
+        <input type="color" id="bgColor" value="#ffffff" title="Background colour (saved with the drawing)" aria-label="Background colour">
         <span class="sep" style="width:1px;align-self:stretch;background:var(--line)"></span>
         <button class="btn" id="projBtn" type="button">Projects</button>
         <span class="cur" id="curName"></span>

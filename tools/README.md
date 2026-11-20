@@ -525,3 +525,14 @@ previews. apptest.py also needs `playwright` and Chrome.
 - Background colour (2026-11-20): `doc.style.bg`, applied when the "Background" box is ticked (board and exports).
 - Missing products in groups (2026-11-20): `selectIds` drops items that can't be drawn; `hiddenMates` carries them
   along when their group moves, ungroups or is deleted.
+- Pipe is always 45 / 90 (2026-11-20, Mason): no Alt free angle any more. `snapPoint` only snaps to a connection or
+  pipe end from a previous point when it lies on a 45° direction (`onDir`); otherwise the run stays on its direction.
+  Guide lines (`guideSources`): open pipe ends (along the run and square to it), open product connections and the
+  draft's own points (level and plumb). The run stops where it crosses one (nearest source wins on a tie) and
+  `lastGuide` is drawn orange from the source to the cursor; open pipe ends' runs are drawn faint while the pipe tool
+  is on. Dragging a pipe end swings it in 45° steps about the next point; dragging a turn uses `snapCorner` (both runs
+  stay 45 / 90). `reconnect`: a 2-point pipe with one end on a moved product keeps its direction (the free end moves
+  too) or, held at both ends, gets a square offset (two turns half way). Old drawings with angled runs are untouched.
+- Shapes fixes (2026-11-20): a click that wobbles under 8 screen px is a click (usual size); a shape with no fill is
+  clickable inside (`data-inner`) but anything underneath wins unless the shape is already selected; Shapes opens a
+  hidden side panel.

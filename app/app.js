@@ -546,10 +546,47 @@ const gridSnap = v => Math.round(v / GRID) * GRID;
 const lenStep = () => doc.style.units === "mm" || doc.style.prec < 0.2 ? GRID : doc.style.prec * 25.4;
 // Returns [x, y, snappedToAConnection, directionOfThatConnection].
 // Runs lock to 45 degree steps from the last point; extraDir adds one more allowed direction (a strainer leg).
-function snapPoint(p, prev, skipId, free, extraDir, hv) {
+// Pipe is always straight at 45 or 90 degrees (Mason, 2026-11-20): from a previous point, a connection or pipe end is
+// only snapped to when it lies on one of those directions; otherwise the run stays on its direction and a guide line
+// (ui.guide) shows where it lines up with that connection or pipe end, so the turn can be made in the right place.
+// free (no previous point) is only used for dimensions.
+let lastGuide = null;
+const onDir = (prev, t, hv, extraDir) => {
+  const a = Math.atan2(t[1] - prev[1], t[0] - prev[0]) * 180 / Math.PI, st = hv ? 90 : 45, L = Math.hypot(t[0] - prev[0], t[1] - prev[1]);
+  if (L < 0.5) return false;
+  const off = Math.abs(a - Math.round(a / st) * st);
+  return L * Math.sin(off * Math.PI / 180) < 0.3 || (!hv && extraDir != null && L * Math.sin(Math.abs(((a - extraDir + 540) % 360) - 180) * Math.PI / 180) < 0.3);
+};
+// Where guide lines come from: open pipe ends (along the run, and square to it), open product connections (level
+// and plumb), and the points already placed in the pipe being drawn (level and plumb).
+function guideSources(skipId, extra) {
+  const pts = [], ports = [], out = [];
+  for (const it of doc.items) {
+    if (it.type === "pipe") pts.push(...it.pts.map(q => [q, it.id]));
+    else if (it.type === "sym" && valid(it)) ports.push(...portsOf(it));
+  }
+  const taken = (q, id) => pts.some(([r, pid]) => pid !== id && near(r, q, 0.6)) || ports.some(r => near(r, q, 0.6));
+  for (const it of doc.items) {
+    if (it.type !== "pipe" || it.id === skipId || it.pts.length < 2) continue;
+    for (const [e, nb] of [[it.pts[0], it.pts[1]], [it.pts[it.pts.length - 1], it.pts[it.pts.length - 2]]]) {
+      if (taken(e, it.id)) continue;
+      const L = Math.hypot(e[0] - nb[0], e[1] - nb[1]); if (L < 1e-6) continue;
+      const u = [(e[0] - nb[0]) / L, (e[1] - nb[1]) / L];
+      out.push({ p: e, dirs: [u, [-u[1], u[0]]], run: u });
+    }
+  }
+  for (const q of ports) if (!pts.some(([r]) => near(r, q, 0.6))) out.push({ p: q.slice(0, 2), dirs: [[1, 0], [0, 1]] });
+  for (const q of extra || []) out.push({ p: q, dirs: [[1, 0], [0, 1]] });
+  return out;
+}
+function snapPoint(p, prev, skipId, free, extraDir, hv, extraGuides) {
   const tol = 11 / ui.view.s;
+  lastGuide = null;
   let best = null, bd = tol;
-  for (const t of snapTargets(skipId)) { const d = Math.hypot(t[0] - p[0], t[1] - p[1]); if (d < bd) { bd = d; best = t; } }
+  for (const t of snapTargets(skipId)) {
+    const d = Math.hypot(t[0] - p[0], t[1] - p[1]);
+    if (d < bd && (!prev || free || onDir(prev, t, hv, extraDir))) { bd = d; best = t; }
+  }
   if (best) return [best[0], best[1], true, best[2]];
   let c = [gridSnap(p[0]), gridSnap(p[1])], u = null;
   if (prev && !free) {
@@ -580,7 +617,40 @@ function snapPoint(p, prev, skipId, free, extraDir, hv) {
       if (Math.hypot(q[0] - c[0], q[1] - c[1]) <= tol) return [Math.round(q[0] * 100) / 100, Math.round(q[1] * 100) / 100, true];
     }
   }
+  // line up with another pipe's end or an open connection: stop the run where it crosses that guide line
+  if (u) {
+    const tp = (p[0] - prev[0]) * u[0] + (p[1] - prev[1]) * u[1];
+    let g = null, gd = tol;
+    for (const S of guideSources(skipId, extraGuides)) {
+      if (near(S.p, prev, 0.6)) continue;
+      for (const v of S.dirs) {
+        const den = u[0] * v[1] - u[1] * v[0]; if (Math.abs(den) < 1e-9) continue;
+        const t = ((S.p[0] - prev[0]) * v[1] - (S.p[1] - prev[1]) * v[0]) / den;
+        if (t <= 0.5) continue;                             // same line from two places: the nearer source wins
+        const q = [prev[0] + u[0] * t, prev[1] + u[1] * t], e = Math.abs(t - tp), sd = Math.hypot(S.p[0] - q[0], S.p[1] - q[1]);
+        if (e < gd - 0.01 || (g && Math.abs(e - gd) <= 0.01 && sd < g.sd)) { gd = e; g = { t, S, v, sd }; }
+      }
+    }
+    if (g) { const q = [r2(prev[0] + u[0] * g.t), r2(prev[1] + u[1] * g.t)]; lastGuide = { from: g.S.p, to: q }; return q; }
+  }
   return c;
+}
+// Drag a turn of a pipe: it stays where both runs either side are at 45 or 90 degrees (the nearest such point).
+function snapCorner(p, A, B, hv) {
+  const st = hv ? 90 : 45, D = []; for (let a = 0; a < 360; a += st) { const r = a * Math.PI / 180; D.push([Math.abs(Math.cos(r)) < 1e-9 ? 0 : Math.cos(r), Math.abs(Math.sin(r)) < 1e-9 ? 0 : Math.sin(r)]); }
+  let best = null, bd = Infinity;
+  const take = q => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; best = [r2(q[0]), r2(q[1])]; } };
+  for (const u of D) for (const v of D) {
+    const den = u[0] * v[1] - u[1] * v[0];
+    if (Math.abs(den) < 1e-9) {                              // A, B and the turn in a straight line
+      if (onDir(A, B, hv)) { const L = Math.hypot(B[0] - A[0], B[1] - A[1]), w = [(B[0] - A[0]) / L, (B[1] - A[1]) / L], t = Math.max(0, Math.min(L, (p[0] - A[0]) * w[0] + (p[1] - A[1]) * w[1]));
+        const st2 = lenStep(); take([A[0] + w[0] * Math.round(t / st2) * st2, A[1] + w[1] * Math.round(t / st2) * st2]); }
+      continue;
+    }
+    const t = ((B[0] - A[0]) * v[1] - (B[1] - A[1]) * v[0]) / den, k = ((B[0] - A[0]) * u[1] - (B[1] - A[1]) * u[0]) / den;
+    if (t > 0.5 && k < -0.5) take([A[0] + u[0] * t, A[1] + u[1] * t]);
+  }
+  return best || [r2(p[0]), r2(p[1])];
 }
 // Dimension points snap to product connections, every pipe point (ends and turns), then pipe centrelines and the grid.
 function dimSnap(p) {
@@ -650,6 +720,23 @@ function reconnect() {
     const d0 = to[0] && [to[0][0] - P[0][0], to[0][1] - P[0][1]], d1 = to[1] && [to[1][0] - P[last][0], to[1][1] - P[last][1]];
     if (d0 && d1 && near(d0, d1, 0.01)) it.pts = P.map(p => [r2(p[0] + d0[0]), r2(p[1] + d0[1])]);   // both ends: carry it
     else {
+      if (P.length === 2 && (!d0 !== !d1)) {                 // one straight run with one end moved: keep it square
+        const mv = d0 ? 0 : 1, d = d0 || d1, a = P[1 - mv], b = P[mv], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (L > 1e-6) {
+          const u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], along = d[0] * u[0] + d[1] * u[1], perp = [d[0] - along * u[0], d[1] - along * u[1]];
+          const fixed = doc.items.some(q => q.type === "sym" && valid(q) && portsOf(q).some(r => near(r, a))) ||
+            doc.items.some(q => q.type === "pipe" && q.id !== it.id && q.pts.some(r => near(r, a)));
+          const b2 = [b[0] + d[0], b[1] + d[1]];
+          if (Math.hypot(perp[0], perp[1]) < 0.01) it.pts = mv ? [a, b2] : [b2, a];
+          else if (!fixed) { const a2 = [a[0] + perp[0], a[1] + perp[1]]; it.pts = (mv ? [a2, b2] : [b2, a2]).map(q => [r2(q[0]), r2(q[1])]); }
+          else {                                             // both ends held: offset with two square turns half way
+            const run = (b2[0] - a[0]) * u[0] + (b2[1] - a[1]) * u[1], off = [b2[0] - a[0] - run * u[0], b2[1] - a[1] - run * u[1]];
+            const m1 = [a[0] + u[0] * run / 2, a[1] + u[1] * run / 2], m2 = [m1[0] + off[0], m1[1] + off[1]], Q = [a, m1, m2, b2].map(q => [r2(q[0]), r2(q[1])]);
+            it.pts = mv ? Q : Q.reverse();
+          }
+          snap.auto.add(it.id); continue;
+        }
+      }
       [[0, 1, d0], [last, last - 1, d1]].forEach(([ix, j, d]) => {
         if (!d) return;
         if (P.length > 2) {                                  // slide the turn so this run keeps its direction
@@ -731,6 +818,20 @@ function draw() {
     `<pattern id="gM" width="${major}" height="${major}" patternUnits="userSpaceOnUse"><path d="M${major} 0H0V${major}" fill="none" stroke="#cdd6e0" stroke-width="${px}"/></pattern></defs>` +
     `<rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="${$("whiteBg").checked ? bgCol() : "#ffffff"}"/><rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="url(#gm)"/><rect x="${x0}" y="${y0}" width="${vw}" height="${vh}" fill="url(#gM)"/>`;
   o += renderAll() + dimOverlay();
+  // guide lines while routing pipe or dragging a pipe end: each open pipe end's run carried on, faint; the one the
+  // cursor has lined up with, bold from where it comes from to the cursor (Mason, 2026-11-20)
+  const pipeDrag = ui.drag && ui.drag.kind === "handle" && (doc.items.find(i => i.id === ui.drag.id) || {}).type === "pipe";
+  if (ui.tool === "pipe" || pipeDrag) {
+    const ext = 6000;
+    for (const S of guideSources(pipeDrag ? ui.drag.id : null)) if (S.run)
+      o += `<line x1="${S.p[0]}" y1="${S.p[1]}" x2="${S.p[0] + S.run[0] * ext}" y2="${S.p[1] + S.run[1] * ext}" stroke="#e58a2b" stroke-opacity="0.45" stroke-width="${px}" stroke-dasharray="${6 * px} ${5 * px}" pointer-events="none"/>`;
+    if (lastGuide && ((ui.draft && ui.cursor) || pipeDrag)) {
+      const g = lastGuide;
+      o += `<line x1="${g.from[0]}" y1="${g.from[1]}" x2="${g.to[0]}" y2="${g.to[1]}" stroke="#e58a2b" stroke-width="${1.6 * px}" stroke-dasharray="${7 * px} ${4 * px}" pointer-events="none"/>` +
+        `<circle cx="${g.from[0]}" cy="${g.from[1]}" r="${4.5 * px}" fill="#e58a2b" pointer-events="none"/>` +
+        `<path d="M${g.to[0] - 6 * px},${g.to[1]}h${12 * px}M${g.to[0]},${g.to[1] - 6 * px}v${12 * px}" stroke="#e58a2b" stroke-width="${1.6 * px}" pointer-events="none"/>`;
+    }
+  }
   // connection points while routing pipe or moving things
   if (ui.tool === "pipe" || ui.tool === "dim" || ui.drag) for (const t of snapTargets(ui.drag && ui.drag.ids ? new Set(ui.drag.ids) : ui.drag && ui.drag.id)) o += `<circle cx="${t[0]}" cy="${t[1]}" r="${4 * px}" fill="#fff" stroke="#1f5fae" stroke-width="${1.5 * px}" pointer-events="none"/>`;
   const sel = selected(), many = selItems();
@@ -788,7 +889,8 @@ function draw() {
   $("board").className = "board t-" + ui.tool;
   $("tip").textContent = ui.drag && ui.drag.inline ? "Let go to cut it into the pipe." : { select: many.length > 1 ? `${many.length} items. Drag to move them together. Ctrl+G groups, Ctrl+Shift+G ungroups.` :
       sel ? "Drag to move. Delete removes it. Shift+click adds to the selection." : "Click an item to select it. Shift+drag a box to select several. Drag the sheet to pan, scroll to zoom.",
-    pipe: ui.draft ? "Aim with the mouse and type a length, then Enter. Or click. Double-click or Enter on an empty box finishes, Esc cancels." : "Click to start a pipe. It snaps to product connections (blue dots).",
+    pipe: ui.draft ? (lastGuide ? "Lined up with the pipe end or connection on the orange line. Click here to turn toward it." :
+      "Aim with the mouse and type a length, then Enter. Or click. Runs go at 90° or 45°. Double-click or Enter finishes, Esc cancels.") : "Click to start a pipe. It snaps to product connections (blue dots).",
     shape: ui.shape.kind === "poly" ? (ui.draft ? "Click the next point. Double-click or Enter finishes, Esc cancels. Shift: 15° steps." : "Click the first point of the line.") :
       ui.shape.kind === "line" ? "Drag from one end to the other. Shift: 15° steps. A click gives a 150 mm line." :
       `Drag on the sheet to draw the ${SHAPE_NAME[ui.shape.kind].toLowerCase()}, or click for the usual size. Shift: keep it square.`,
@@ -1135,7 +1237,11 @@ $("spFront").addEventListener("click", () => shapeOrder(true));
 $("spBack").addEventListener("click", () => shapeOrder(false));
 
 // ---------------------------------------------------------------- actions
-function setTool(t) { ui.tool = t; ui.draft = null; ui.cursor = null; if (t !== "select") selectIds([]); refresh(); }
+function setTool(t) {
+  ui.tool = t; ui.draft = null; ui.cursor = null; lastGuide = null; if (t !== "select") selectIds([]);
+  if (t === "shape" && document.querySelector(".cols").classList.contains("noside")) setSide(true);   // the shape picker is in the panel
+  refresh();
+}
 function addProduct() {
   const k = ui.pick, it = { id: nextId++, type: "sym", product: k.product, size: k.size, variant: k.variant, color: k.color, mat: k.mat || "", arrow: k.arrow, rot: 0, flip: false, x: ui.view.cx, y: ui.view.cy,
     logo: !!k.logo, logoPos: k.logoPos, logoSize: k.logoSize };
@@ -1309,7 +1415,7 @@ cv.addEventListener("pointerdown", e => {
   if (ui.tool === "pipe") {
     if (dbl && ui.draft) { finishPipe(); return; }          // double-click ends the run
     const prev = ui.draft && ui.draft.pts[ui.draft.pts.length - 1];
-    const sp = snapPoint(w, prev, null, e.altKey && !e.shiftKey, ui.draft && ui.draft.pts.length === 1 ? ui.draft.dir : null, e.shiftKey), p = sp.slice(0, 2);
+    const sp = snapPoint(w, prev, null, false, ui.draft && ui.draft.pts.length === 1 ? ui.draft.dir : null, e.shiftKey, ui.draft ? ui.draft.pts.slice(0, -1) : null), p = sp.slice(0, 2);
     if (!ui.draft) ui.draft = { pts: [p], dir: sp[3] };
     else if (Math.hypot(p[0] - prev[0], p[1] - prev[1]) > 0.5) ui.draft.pts.push(p);
     draw();
@@ -1342,7 +1448,7 @@ cv.addEventListener("pointerdown", e => {
       draw(); return;
     }
     cv.setPointerCapture(e.pointerId);
-    ui.drag = { kind: "shapeNew", start: p, cur: p, moved: false, shift: e.shiftKey }; draw();
+    ui.drag = { kind: "shapeNew", start: p, cur: p, moved: false, shift: e.shiftKey, sx: e.clientX, sy: e.clientY }; draw();
     return;
   }
   if (ui.tool === "text") {
@@ -1350,7 +1456,13 @@ cv.addEventListener("pointerdown", e => {
     doc.items.push(it); selectIds([it.id]); ui.tool = "select"; commit(); $("textVal").focus(); $("textVal").select();
     return;
   }
-  const h = e.target.closest("[data-h]"), g = e.target.closest("[data-id]"), gr = e.target.closest("[data-g]");
+  const h = e.target.closest("[data-h]"), gr = e.target.closest("[data-g]");
+  let g = e.target.closest("[data-id]");
+  // inside a shape with no fill: anything underneath it wins, unless that shape is already selected
+  if (g && e.target.closest("[data-inner]") && !ui.set.includes(+g.dataset.id)) {
+    const under = document.elementsFromPoint(e.clientX, e.clientY).filter(el => cv.contains(el) && !el.closest("[data-inner]")).map(el => el.closest("[data-id]")).find(x => x && x !== g);
+    if (under) g = under;
+  }
   cv.setPointerCapture(e.pointerId);
   if (gr && selected()) {
     const it = selected(), gp = symOf(it).grips[+gr.dataset.g];
@@ -1386,14 +1498,16 @@ cv.addEventListener("pointermove", e => {
   const w = toWorld(e), d = ui.drag;
   if (!d) {
     if (ui.draft) { const prev = ui.draft.pts[ui.draft.pts.length - 1];
-      ui.cursor = ui.tool === "pipe" ? snapPoint(w, prev, null, e.altKey && !e.shiftKey, ui.draft.pts.length === 1 ? ui.draft.dir : null, e.shiftKey).slice(0, 2) :
+      ui.cursor = ui.tool === "pipe" ? snapPoint(w, prev, null, false, ui.draft.pts.length === 1 ? ui.draft.dir : null, e.shiftKey, ui.draft.pts.slice(0, -1)).slice(0, 2) :
         ui.tool === "shape" ? (e.shiftKey ? step15(prev, w) : e.altKey ? [r2(w[0]), r2(w[1])] : [gridSnap(w[0]), gridSnap(w[1])]) :
         ui.tool === "dim" && ui.draft.pts.length === 1 ? dimSnap(w) : w; draw(); }
     return;
   }
   if (d.kind === "pan") { ui.view.cx = d.cx - (e.clientX - d.sx) / ui.view.s; ui.view.cy = d.cy - (e.clientY - d.sy) / ui.view.s; d.moved = true; draw(); return; }
   if (d.kind === "box") { d.cur = w; d.moved = true; draw(); return; }
-  if (d.kind === "shapeNew") { d.cur = e.altKey ? [r2(w[0]), r2(w[1])] : [gridSnap(w[0]), gridSnap(w[1])]; d.shift = e.shiftKey; d.moved = true; draw(); return; }
+  if (d.kind === "shapeNew") {                                // a wobble under 8 screen pixels is still a click (usual size)
+    if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 8) return;
+    d.cur = e.altKey ? [r2(w[0]), r2(w[1])] : [gridSnap(w[0]), gridSnap(w[1])]; d.shift = e.shiftKey; d.moved = true; draw(); return; }
   if (d.kind === "grip") {                                  // stretch equipment along the handle's direction; the origin stays put
     const it = doc.items.find(i => i.id === d.id); if (!it) return;
     const a = it.rot * Math.PI / 180, fl = it.flip ? -1 : 1, u = d.gp.u, wu = [u[0] * fl * Math.cos(a) - u[1] * Math.sin(a), u[0] * fl * Math.sin(a) + u[1] * Math.cos(a)];
@@ -1421,9 +1535,10 @@ cv.addEventListener("pointermove", e => {
   d.moved = true;
   if (d.kind === "handle" && it.type === "shape") { shapeDragHandle(it, JSON.parse(d.o), d.hk, w, e.shiftKey, e.altKey, q => [gridSnap(q[0]), gridSnap(q[1])]); draw(); panel(); return; }
   if (d.kind === "handle") {
-    if (it.type === "pipe") {
-      const nb = e.shiftKey ? JSON.parse(d.orig0 || "null") : null;
-      it.pts[d.i] = snapPoint(w, nb, it.id, !nb, null, !!nb).slice(0, 2);
+    if (it.type === "pipe") {                                // ends swing in 45° steps about the next point; turns stay square
+      const n = it.pts.length, i = d.i;
+      if (i === 0 || i === n - 1) it.pts[i] = snapPoint(w, it.pts[i === 0 ? 1 : n - 2], it.id, false, null, e.shiftKey).slice(0, 2);
+      else { lastGuide = null; it.pts[i] = snapCorner(w, it.pts[i - 1], it.pts[i + 1], e.shiftKey); }
     }
     else if (it.type === "dim") {
       if (d.i < 2) it[d.i ? "b" : "a"] = dimSnap(w);
@@ -1464,7 +1579,7 @@ function moveExtras(d) {
 function endDrag() {
   const d = ui.drag; ui.drag = null;
   if (d && d.kind === "shapeNew") {
-    const it = shapeNew(ui.shape.kind, shapeStyle(ui.shape.kind), d.start, d.cur, d.shift); it.id = nextId++;
+    const it = shapeNew(ui.shape.kind, shapeStyle(ui.shape.kind), d.start, d.moved ? d.cur : d.start, d.shift); it.id = nextId++;
     const fitted = !d.moved && (it.kind === "water" || it.kind === "wisps") && shapeIntoPipe(it, d.start);
     doc.items.push(it); selectIds([it.id]); ui.tool = "select"; commit();
     if (fitted) say(`Fitted inside the ${fitted} pipe. Drag the handles to change it.`, "ok");
@@ -1998,7 +2113,7 @@ const KEYS = [
     ["Ctrl+D", "Duplicate"], ["Ctrl+A", "Select everything"], ["Ctrl+G", "Group"], ["Ctrl+Shift+G", "Ungroup"]]],
   ["Copy and undo", [["Ctrl+C", "Copy, works across drawings"], ["Ctrl+X", "Cut"], ["Ctrl+V", "Paste"],
     ["Ctrl+Z", "Undo"], ["Ctrl+Y|Ctrl+Shift+Z", "Redo"]]],
-  ["Drawing a pipe", [["0-9", "Type a run length, then Enter to place it"], ["Enter", "Finish the pipe"], ["Alt", "Hold for any angle, not just 45° steps"], ["Shift", "Hold to keep the run horizontal or vertical"],
+  ["Drawing a pipe", [["0-9", "Type a run length, then Enter to place it"], ["Enter", "Finish the pipe"], ["Guide line", "Dashed orange line: the run lines up with that pipe end or connection. Click there to turn"], ["Shift", "Hold to keep the run horizontal or vertical"],
     ["Double-click", "Finish the pipe"]]],
   ["Shapes", [["Drag", "Draw the shape. A click gives the usual size"], ["Shift", "Keep it square; lines and turning go in 15° steps; corner handles keep the proportions"],
     ["Alt", "Hold to place off the 5 mm grid"], ["Double-click", "Finish a polyline, or edit a shape's text"]]],

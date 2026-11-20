@@ -161,8 +161,11 @@ function shapeSvg(it, wrap) {
     return `<g${id}${op}><path d="${d}" ${_paint(p)}/><path d="${d}" fill="none" stroke="transparent" stroke-width="${hitW}"/></g>`;
   }
   const body = it.kind === "callout" ? shapeCallout(it) : shapeBody(it);
+  // no fill: the inside is still clickable (data-inner: the editor lets anything underneath win; Mason, 2026-11-20)
   const hit = it.fill || ["wisps", "plume", "cloud", "drops", "water"].includes(it.kind) ? "" :
-    it.kind === "ellipse" ? `<ellipse cx="0" cy="0" rx="${_f(it.w / 2)}" ry="${_f(it.h / 2)}" fill="none" stroke="transparent" stroke-width="${hitW}"/>` :
+    it.kind === "ellipse" ? `<ellipse data-inner="1" cx="0" cy="0" rx="${_f(it.w / 2)}" ry="${_f(it.h / 2)}" fill="transparent" stroke="none"/>` +
+      `<ellipse cx="0" cy="0" rx="${_f(it.w / 2)}" ry="${_f(it.h / 2)}" fill="none" stroke="transparent" stroke-width="${hitW}"/>` :
+    `<rect data-inner="1" x="${_f(-it.w / 2)}" y="${_f(-it.h / 2)}" width="${_f(it.w)}" height="${_f(it.h)}" fill="transparent" stroke="none"/>` +
     `<rect x="${_f(-it.w / 2)}" y="${_f(-it.h / 2)}" width="${_f(it.w)}" height="${_f(it.h)}" fill="none" stroke="transparent" stroke-width="${hitW}"/>`;
   return `<g${id}${op} transform="translate(${_f(it.x)} ${_f(it.y)}) rotate(${_f(it.rot || 0)})">` +
     (it.flip && it.kind !== "callout" ? `<g transform="scale(-1 1)">${body}</g>` : body) + hit + shapeText(it, wrap) + `</g>`;
